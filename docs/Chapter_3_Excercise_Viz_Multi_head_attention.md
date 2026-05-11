@@ -1,0 +1,45 @@
+# Chapter 3 Excercise Viz Multi head attention
+
+- 노트북: [Chapter_3_Excercise_Viz_Multi_head_attention.ipynb](../Chapter_3_Excercise_Viz_Multi_head_attention.ipynb)
+- 학습 주제: 멀티 헤드 어텐션 시각화
+- 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
+
+## 핵심 흐름
+
+```mermaid
+flowchart TD
+    A[프롬프트 토큰] --> B[GPT 모델 forward]
+    B --> C[레이어별 attention tensor]
+    C --> D[head 선택]
+    D --> E[attention heatmap]
+    E --> F[토큰이 어느 이전 토큰을 보는지 해석]
+```
+
+## 노트북 설명
+
+이 노트북은 멀티 헤드 어텐션 시각화를 실습 코드로 따라가며, 문자열/토큰/텐서/모델 출력이 어떻게 연결되는지 확인하는 자료입니다. 각 코드 셀에는 셀 목적, torch 관점, 실행 후 확인할 포인트를 주석으로 추가했습니다. 처음 읽을 때는 세부 수식보다 텐서의 차원 변화와 `nn.Module.forward()`의 입출력을 우선 추적하세요.
+
+## 학습 목표
+
+- GPT 내부 attention weight를 추출하고 시각화합니다.
+- layer/head별로 attention 패턴이 달라지는 것을 비교합니다.
+- 히트맵을 토큰 간 의존성으로 읽는 연습을 합니다.
+
+## torch 관점에서 볼 부분
+
+- attention tensor에서 layer/head 축을 선택하면 2D 토큰-토큰 행렬이 됩니다.
+- detach/cpu/numpy 변환은 시각화를 위해 계산 그래프와 장치를 분리하는 절차입니다.
+
+## 추천 읽기 순서
+
+1. 데이터가 문자열에서 토큰 ID 또는 텐서로 바뀌는 지점을 찾습니다.
+2. 모델 계층이 입력 텐서를 어떤 shape으로 받아 어떤 shape으로 반환하는지 확인합니다.
+3. loss 또는 평가 지표가 어떤 출력과 정답을 비교하는지 확인합니다.
+4. 생성, 분류, 평가처럼 노트북의 최종 목적에 해당하는 셀을 다시 실행하며 전체 흐름을 연결합니다.
+
+## 자주 헷갈리는 포인트
+
+- `logits`는 확률이 아니라 정규화되지 않은 점수입니다.
+- `batch` 차원은 여러 샘플을 한 번에 처리하기 위해 앞에 붙는 차원입니다.
+- `sequence_length`는 한 샘플 안의 토큰 개수이며, GPT에서는 시간축처럼 다룹니다.
+- `vocab_size` 차원은 다음 토큰 후보 전체에 대한 점수입니다.

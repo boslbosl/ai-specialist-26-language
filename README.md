@@ -3,6 +3,8 @@
   
 ## 챕터별 실습 노트북
 
+- 노트북별 학습 설명과 Mermaid 다이어그램은 [docs/](docs/) 아래 Markdown 파일로 정리했습니다.
+
 - [Chapter_2_Exercise_Dataset.ipynb](Chapter_2_Exercise_Dataset.ipynb)
   - Dataset, DataLoader 만드는법
 - [Chapter_3_Excercise_Attention.ipynb](Chapter_3_Excercise_Attention.ipynb)

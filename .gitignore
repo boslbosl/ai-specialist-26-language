@@ -12,6 +12,5 @@ __pycache__
 unsloth_compiled_cache
 logs/
 .codex_tmp_libs
-docs
 .tmp_reasoning_repo
 .tmp_tests
