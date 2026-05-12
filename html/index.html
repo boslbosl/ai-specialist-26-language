@@ -28,8 +28,8 @@
       <div class="intro-copy">
         <h2 id="intro-title">한 화면에서 보는 핵심 흐름</h2>
         <p>
-          Chapter 3의 causal self-attention이 Chapter 4의 TransformerBlock 안으로 들어가고,
-          Chapter 5에서는 logits와 target을 비교해 학습하고, Chapter 6-7에서는 태스크와 선호에 맞게 모델을 조정합니다.
+          Chapter 3의 self-attention이 Chapter 4의 TransformerBlock 안으로 들어가고,
+          Chapter 5에서는 예측 점수와 정답 토큰을 비교해 학습합니다. Chapter 6-7에서는 분류 태스크와 선호 답변에 맞게 모델을 조정합니다.
         </p>
       </div>
       <div class="pipeline" aria-label="학습 흐름">
@@ -114,7 +114,7 @@
 
         <label class="switch-row">
           <input id="mask-toggle" type="checkbox" checked>
-          <span>causal mask 적용</span>
+          <span>미래 토큰 가리기</span>
         </label>
 
         <div class="shape-box" aria-live="polite">
@@ -132,7 +132,7 @@
           <p class="eyebrow">Chapter 4</p>
           <h2 id="gpt-title">GPTModel 구조</h2>
           <p>
-            입력 token id는 embedding이 되고, 여러 TransformerBlock을 통과한 뒤 vocabulary 전체에 대한 logits가 됩니다.
+            입력 토큰 번호는 벡터가 되고, 여러 TransformerBlock을 통과한 뒤 전체 토큰 후보에 대한 점수로 바뀝니다.
           </p>
         </div>
 
@@ -146,7 +146,7 @@
           <div class="flow-node">drop_emb</div>
           <div id="block-stack" class="block-stack" aria-label="TransformerBlock stack"></div>
           <div class="flow-node">final_norm</div>
-          <div class="flow-node output">out_head<br><strong>vocab logits</strong></div>
+          <div class="flow-node output">out_head<br><strong>token scores</strong></div>
         </div>
       </div>
 
@@ -187,7 +187,7 @@
           <p class="eyebrow">Inference</p>
           <h2 id="generation-title">다음 토큰 생성 루프</h2>
           <p>
-            GPT는 한 번에 문장 전체를 완성하지 않고, 마지막 위치의 logits에서 토큰 하나를 고른 뒤 입력 뒤에 다시 붙입니다.
+            GPT는 한 번에 문장 전체를 완성하지 않고, 마지막 위치의 다음 토큰 점수에서 하나를 고른 뒤 입력 뒤에 다시 붙입니다.
           </p>
         </div>
 
@@ -196,7 +196,7 @@
           <div class="loop-diagram" aria-label="생성 루프 단계">
             <div class="loop-node" data-loop-step="0">context crop</div>
             <div class="loop-node" data-loop-step="1">model forward</div>
-            <div class="loop-node" data-loop-step="2">last logits</div>
+            <div class="loop-node" data-loop-step="2">last token scores</div>
             <div class="loop-node" data-loop-step="3">argmax</div>
             <div class="loop-node" data-loop-step="4">append</div>
           </div>
@@ -236,7 +236,7 @@
           <p class="eyebrow">Chapter 5</p>
           <h2 id="pretraining-title">Pretraining Loop</h2>
           <p>
-            사전학습은 텍스트를 input/target 쌍으로 만들고, GPT가 예측한 logits를 target과 비교해 파라미터를 반복 업데이트하는 과정입니다.
+            사전학습은 텍스트를 입력/정답 토큰 쌍으로 만들고, GPT가 예측한 점수와 정답을 비교해 파라미터를 반복 수정하는 과정입니다.
           </p>
         </div>
 
@@ -292,7 +292,7 @@
           <p class="eyebrow">Chapter 6</p>
           <h2 id="finetuning-title">Classification & LoRA Fine-tuning</h2>
           <p>
-            분류 미세튜닝은 GPT backbone 위에 class head를 붙이는 방식이고, LoRA는 큰 가중치를 고정한 채 작은 adapter만 학습하는 방식입니다.
+            분류 미세튜닝은 GPT 위에 작은 분류 head를 붙이는 방식이고, LoRA는 큰 가중치를 고정한 채 작은 보정 경로만 학습하는 방식입니다.
           </p>
         </div>
 
@@ -339,7 +339,7 @@
           <p class="eyebrow">Chapter 7</p>
           <h2 id="alignment-title">Instruction Tuning & DPO</h2>
           <p>
-            SFT는 좋은 응답 토큰을 직접 학습하고, DPO는 chosen/rejected 응답의 상대 선호를 이용해 policy 모델을 조정합니다.
+            SFT는 좋은 답변 토큰을 직접 학습하고, DPO는 선호 답변과 비선호 답변의 차이를 이용해 학습 중인 모델을 조정합니다.
           </p>
         </div>
 
@@ -369,7 +369,7 @@
 
         <label class="switch-row">
           <input id="reference-toggle" type="checkbox" checked>
-          <span>reference model freeze</span>
+          <span>reference model 고정</span>
         </label>
 
         <div class="concept-note" id="alignment-note"></div>
@@ -418,7 +418,7 @@
         <a class="reference-card" href="https://docs.nvidia.com/nemo/rl/0.4.0/guides/dpo.html" target="_blank" rel="noopener">
           <strong>NeMo RL DPO Guide</strong>
           <span>NVIDIA</span>
-          <p>chosen/rejected와 frozen reference model의 관계를 Chapter 7 DPO 시각화에 반영했습니다.</p>
+          <p>선호/비선호 답변과 비교용 고정 모델의 관계를 Chapter 7 DPO 시각화에 반영했습니다.</p>
         </a>
       </div>
     </section>
@@ -434,6 +434,28 @@
     <a href="../docs/Chapter_7_Exercise_Follow_Instructions.md">Chapter 7 SFT</a>
     <a href="../docs/Chapter_7_Exercise_Follow_Instructions_dpo.md">Chapter 7 DPO</a>
   </footer>
+
+  <div id="box-popover" class="box-popover" role="tooltip" hidden>
+    <strong id="box-popover-title"></strong>
+    <p id="box-popover-body"></p>
+    <p id="box-popover-term" class="box-popover-term"></p>
+    <button id="box-popover-example" class="example-button" type="button">예시 보기</button>
+  </div>
+
+  <div id="example-modal" class="example-modal" role="dialog" aria-modal="true" aria-labelledby="example-modal-title" hidden>
+    <div class="example-backdrop" data-close-example></div>
+    <div class="example-card">
+      <div class="example-header">
+        <div>
+          <p id="example-modal-source" class="example-source"></p>
+          <h2 id="example-modal-title">코드 예시</h2>
+        </div>
+        <button id="example-close" class="icon-button" type="button" aria-label="닫기">×</button>
+      </div>
+      <p id="example-modal-note" class="example-note"></p>
+      <pre><code id="example-code"></code></pre>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
