@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attention & GPT 구조 시각화</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">LLM Hands-on · Chapter 3-7</p>
+      <h1>Attention에서 학습과 미세튜닝까지</h1>
+    </div>
+    <nav class="nav-tabs" aria-label="학습 섹션">
+      <a href="#attention-lab">Attention</a>
+      <a href="#gpt-structure">GPT 구조</a>
+      <a href="#generation-loop">생성 루프</a>
+      <a href="#pretraining-loop">사전학습</a>
+      <a href="#finetuning-lab">미세튜닝</a>
+      <a href="#alignment-lab">지시/DPO</a>
+      <a href="#references">References</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="intro-band" aria-labelledby="intro-title">
+      <div class="intro-copy">
+        <h2 id="intro-title">한 화면에서 보는 핵심 흐름</h2>
+        <p>
+          Chapter 3의 causal self-attention이 Chapter 4의 TransformerBlock 안으로 들어가고,
+          Chapter 5에서는 logits와 target을 비교해 학습하고, Chapter 6-7에서는 태스크와 선호에 맞게 모델을 조정합니다.
+        </p>
+      </div>
+      <div class="pipeline" aria-label="학습 흐름">
+        <span data-pipeline-stage="token">Token IDs</span>
+        <span data-pipeline-stage="attention">Q/K/V</span>
+        <span data-pipeline-stage="attention">Masked Attention</span>
+        <span data-pipeline-stage="model">TransformerBlock</span>
+        <span data-pipeline-stage="logits">Logits</span>
+        <span data-pipeline-stage="training">Loss</span>
+        <span data-pipeline-stage="training">Fine-tuning</span>
+        <span data-pipeline-stage="alignment">Alignment</span>
+      </div>
+    </section>
+
+    <section class="section-grid" aria-labelledby="lens-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Review 개선</p>
+          <h2 id="lens-title">학습 렌즈</h2>
+          <p>
+            같은 GPT 흐름도라도 처음 볼 때는 큰 그림, 구현할 때는 shape, 학습할 때는 loss와 업데이트 위치를 봐야 합니다.
+          </p>
+        </div>
+        <div id="lens-map" class="lens-map" aria-label="추상화 레벨별 학습 지도"></div>
+      </div>
+
+      <aside class="control-panel" aria-label="학습 렌즈 조작 패널">
+        <div class="mode-buttons lens-buttons" role="group" aria-label="학습 렌즈">
+          <button class="mode-button active" type="button" data-lens-mode="overview">큰 그림</button>
+          <button class="mode-button" type="button" data-lens-mode="shape">Shape</button>
+          <button class="mode-button" type="button" data-lens-mode="training">학습</button>
+          <button class="mode-button" type="button" data-lens-mode="alignment">정렬</button>
+        </div>
+        <div class="concept-note" id="lens-note"></div>
+      </aside>
+    </section>
+
+    <section id="attention-lab" class="section-grid wide-left" aria-labelledby="attention-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Chapter 3</p>
+          <h2 id="attention-title">Causal Attention Lab</h2>
+          <p>
+            토큰 하나를 선택하면 그 토큰이 어떤 이전 토큰을 얼마나 참고하는지 행렬과 연결선으로 확인할 수 있습니다.
+          </p>
+        </div>
+
+        <div class="attention-stage" aria-label="Attention 연결 시각화">
+          <svg id="attention-lines" viewBox="0 0 780 230" role="img" aria-labelledby="attention-svg-title">
+            <title id="attention-svg-title">선택된 토큰의 attention weight 연결선</title>
+          </svg>
+          <div id="token-row" class="token-row" aria-label="토큰 목록"></div>
+        </div>
+
+        <div class="matrix-wrap">
+          <div class="matrix-header">
+            <h3>attention weight matrix</h3>
+            <p id="matrix-caption">행은 query 위치, 열은 key 위치입니다.</p>
+          </div>
+          <div id="attention-matrix" class="attention-matrix" aria-label="attention matrix"></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="Attention 조작 패널">
+        <div class="control-block">
+          <label for="step-range">계산 단계</label>
+          <input id="step-range" type="range" min="0" max="4" value="3">
+          <output id="step-label" for="step-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="token-range">현재 query 토큰</label>
+          <input id="token-range" type="range" min="0" max="5" value="2">
+          <output id="token-label" for="token-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="head-range">head 수</label>
+          <input id="head-range" type="range" min="1" max="4" value="2" step="1">
+          <output id="head-label" for="head-range"></output>
+        </div>
+
+        <label class="switch-row">
+          <input id="mask-toggle" type="checkbox" checked>
+          <span>causal mask 적용</span>
+        </label>
+
+        <div class="shape-box" aria-live="polite">
+          <h3>Shape Check</h3>
+          <dl id="shape-list"></dl>
+        </div>
+
+        <div class="concept-note" id="attention-note"></div>
+      </aside>
+    </section>
+
+    <section id="gpt-structure" class="section-grid" aria-labelledby="gpt-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Chapter 4</p>
+          <h2 id="gpt-title">GPTModel 구조</h2>
+          <p>
+            입력 token id는 embedding이 되고, 여러 TransformerBlock을 통과한 뒤 vocabulary 전체에 대한 logits가 됩니다.
+          </p>
+        </div>
+
+        <div class="model-flow" aria-label="GPTModel 흐름">
+          <div class="flow-node input">in_idx<br><strong>[batch, seq_len]</strong></div>
+          <div class="flow-join">
+            <div class="flow-node">tok_emb</div>
+            <div class="flow-node">pos_emb</div>
+          </div>
+          <div class="flow-node">token + position</div>
+          <div class="flow-node">drop_emb</div>
+          <div id="block-stack" class="block-stack" aria-label="TransformerBlock stack"></div>
+          <div class="flow-node">final_norm</div>
+          <div class="flow-node output">out_head<br><strong>vocab logits</strong></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="GPT 구조 조작 패널">
+        <div class="control-block">
+          <label for="layer-range">TransformerBlock 층 수</label>
+          <input id="layer-range" type="range" min="1" max="12" value="6">
+          <output id="layer-label" for="layer-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="embedding-range">embedding 차원</label>
+          <input id="embedding-range" type="range" min="128" max="768" step="128" value="768">
+          <output id="embedding-label" for="embedding-range"></output>
+        </div>
+
+        <div class="transformer-card" aria-label="TransformerBlock 내부 구조">
+          <h3>TransformerBlock</h3>
+          <ol class="block-steps">
+            <li><span>LayerNorm</span><strong>Pre-norm</strong></li>
+            <li><span>Masked Multi-Head Attention</span><strong>토큰 간 정보 교환</strong></li>
+            <li><span>Residual Add</span><strong>원래 입력 보존</strong></li>
+            <li><span>FeedForward + GELU</span><strong>각 토큰 표현 가공</strong></li>
+            <li><span>Residual Add</span><strong>깊은 층 안정화</strong></li>
+          </ol>
+        </div>
+
+        <div class="shape-box" aria-live="polite">
+          <h3>GPT Shape</h3>
+          <dl id="gpt-shapes"></dl>
+        </div>
+      </aside>
+    </section>
+
+    <section id="generation-loop" class="section-grid wide-left" aria-labelledby="generation-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Inference</p>
+          <h2 id="generation-title">다음 토큰 생성 루프</h2>
+          <p>
+            GPT는 한 번에 문장 전체를 완성하지 않고, 마지막 위치의 logits에서 토큰 하나를 고른 뒤 입력 뒤에 다시 붙입니다.
+          </p>
+        </div>
+
+        <div class="generation-stage">
+          <div id="generated-tokens" class="generated-tokens" aria-label="생성된 토큰"></div>
+          <div class="loop-diagram" aria-label="생성 루프 단계">
+            <div class="loop-node" data-loop-step="0">context crop</div>
+            <div class="loop-node" data-loop-step="1">model forward</div>
+            <div class="loop-node" data-loop-step="2">last logits</div>
+            <div class="loop-node" data-loop-step="3">argmax</div>
+            <div class="loop-node" data-loop-step="4">append</div>
+          </div>
+          <div class="logit-bars" id="logit-bars" aria-label="다음 토큰 후보 점수"></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="생성 루프 조작 패널">
+        <label class="text-control" for="prompt-input">시작 문장</label>
+        <input id="prompt-input" class="prompt-input" value="Hello, I am">
+        <div class="control-block">
+          <label for="temperature-range">temperature</label>
+          <input id="temperature-range" type="range" min="5" max="20" value="10">
+          <output id="temperature-label" for="temperature-range"></output>
+        </div>
+        <div class="control-block">
+          <label for="topk-range">top-k</label>
+          <input id="topk-range" type="range" min="1" max="4" value="4">
+          <output id="topk-label" for="topk-range"></output>
+        </div>
+        <div class="button-row">
+          <button id="play-button" class="icon-button" type="button" title="재생" aria-label="재생">▶</button>
+          <button id="step-button" class="icon-button" type="button" title="다음 단계" aria-label="다음 단계">→</button>
+          <button id="reset-button" class="icon-button" type="button" title="초기화" aria-label="초기화">↺</button>
+        </div>
+        <div class="concept-note" id="generation-note"></div>
+        <div class="shape-box">
+          <h3>Loop State</h3>
+          <dl id="loop-state"></dl>
+        </div>
+      </aside>
+    </section>
+
+    <section id="pretraining-loop" class="section-grid wide-left" aria-labelledby="pretraining-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Chapter 5</p>
+          <h2 id="pretraining-title">Pretraining Loop</h2>
+          <p>
+            사전학습은 텍스트를 input/target 쌍으로 만들고, GPT가 예측한 logits를 target과 비교해 파라미터를 반복 업데이트하는 과정입니다.
+          </p>
+        </div>
+
+        <div id="training-flow" class="training-flow" aria-label="사전학습 단계">
+          <div class="train-node" data-train-step="0">Text Corpus</div>
+          <div class="train-node" data-train-step="1">DataLoader</div>
+          <div class="train-node" data-train-step="2">GPT Forward</div>
+          <div class="train-node" data-train-step="3">CrossEntropyLoss</div>
+          <div class="train-node" data-train-step="4">Backward</div>
+          <div class="train-node" data-train-step="5">Optimizer Step</div>
+          <div class="train-node" data-train-step="6">Eval + Sample</div>
+        </div>
+
+        <div class="loss-panel">
+          <div class="matrix-header">
+            <h3>loss trend</h3>
+            <p>epoch를 올리면 train/validation loss가 어떻게 변하는지 관찰합니다.</p>
+          </div>
+          <div id="loss-chart" class="loss-chart" aria-label="학습 손실 차트"></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="사전학습 조작 패널">
+        <div class="control-block">
+          <label for="train-step-range">학습 단계</label>
+          <input id="train-step-range" type="range" min="0" max="6" value="2">
+          <output id="train-step-label" for="train-step-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="epoch-range">epoch</label>
+          <input id="epoch-range" type="range" min="0" max="10" value="3">
+          <output id="epoch-label" for="epoch-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="batch-range">batch size</label>
+          <input id="batch-range" type="range" min="1" max="8" value="4">
+          <output id="batch-label" for="batch-range"></output>
+        </div>
+
+        <div class="concept-note" id="training-note"></div>
+        <div class="shape-box" aria-live="polite">
+          <h3>Training Shape</h3>
+          <dl id="training-shapes"></dl>
+        </div>
+      </aside>
+    </section>
+
+    <section id="finetuning-lab" class="section-grid wide-left" aria-labelledby="finetuning-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Chapter 6</p>
+          <h2 id="finetuning-title">Classification & LoRA Fine-tuning</h2>
+          <p>
+            분류 미세튜닝은 GPT backbone 위에 class head를 붙이는 방식이고, LoRA는 큰 가중치를 고정한 채 작은 adapter만 학습하는 방식입니다.
+          </p>
+        </div>
+
+        <div class="finetune-board">
+          <div id="finetune-flow" class="finetune-flow" aria-label="미세튜닝 흐름"></div>
+          <div id="adapter-visual" class="adapter-visual" aria-label="LoRA adapter 시각화"></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="미세튜닝 조작 패널">
+        <div class="mode-buttons" role="group" aria-label="미세튜닝 모드">
+          <button class="mode-button active" type="button" data-finetune-mode="classification">분류</button>
+          <button class="mode-button" type="button" data-finetune-mode="lora">LoRA</button>
+        </div>
+
+        <div class="control-block">
+          <label for="class-range">class 수</label>
+          <input id="class-range" type="range" min="2" max="6" value="2">
+          <output id="class-label" for="class-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="rank-range">LoRA rank</label>
+          <input id="rank-range" type="range" min="1" max="16" value="4">
+          <output id="rank-label" for="rank-range"></output>
+        </div>
+
+        <label class="switch-row">
+          <input id="freeze-toggle" type="checkbox" checked>
+          <span>base weights freeze</span>
+        </label>
+
+        <div class="concept-note" id="finetune-note"></div>
+        <div class="shape-box" aria-live="polite">
+          <h3>Fine-tuning Shape</h3>
+          <dl id="finetune-shapes"></dl>
+        </div>
+      </aside>
+    </section>
+
+    <section id="alignment-lab" class="section-grid wide-left" aria-labelledby="alignment-title">
+      <div class="panel">
+        <div class="section-heading">
+          <p class="eyebrow">Chapter 7</p>
+          <h2 id="alignment-title">Instruction Tuning & DPO</h2>
+          <p>
+            SFT는 좋은 응답 토큰을 직접 학습하고, DPO는 chosen/rejected 응답의 상대 선호를 이용해 policy 모델을 조정합니다.
+          </p>
+        </div>
+
+        <div class="alignment-board">
+          <div id="alignment-flow" class="alignment-flow" aria-label="Chapter 7 학습 흐름"></div>
+          <div id="alignment-visual" class="alignment-visual" aria-label="Instruction tuning 또는 DPO 세부 시각화"></div>
+        </div>
+      </div>
+
+      <aside class="control-panel" aria-label="Chapter 7 조작 패널">
+        <div class="mode-buttons" role="group" aria-label="Chapter 7 모드">
+          <button class="mode-button active" type="button" data-align-mode="sft">SFT</button>
+          <button class="mode-button" type="button" data-align-mode="dpo">DPO</button>
+        </div>
+
+        <div class="control-block">
+          <label for="response-mask-range">응답 label 비율</label>
+          <input id="response-mask-range" type="range" min="20" max="80" value="45">
+          <output id="response-mask-label" for="response-mask-range"></output>
+        </div>
+
+        <div class="control-block">
+          <label for="beta-range">DPO beta</label>
+          <input id="beta-range" type="range" min="1" max="20" value="6">
+          <output id="beta-label" for="beta-range"></output>
+        </div>
+
+        <label class="switch-row">
+          <input id="reference-toggle" type="checkbox" checked>
+          <span>reference model freeze</span>
+        </label>
+
+        <div class="concept-note" id="alignment-note"></div>
+        <div class="shape-box" aria-live="polite">
+          <h3>Alignment Shape</h3>
+          <dl id="alignment-shapes"></dl>
+        </div>
+      </aside>
+    </section>
+
+    <section id="references" class="panel references-panel" aria-labelledby="references-title">
+      <div class="section-heading">
+        <p class="eyebrow">References</p>
+        <h2 id="references-title">참고한 외부 시각화 자료</h2>
+        <p>
+          외부 자료의 그림을 복제하지 않고, 상호작용 방식과 설명 순서를 현재 실습 흐름에 맞게 응용했습니다.
+        </p>
+      </div>
+
+      <div class="reference-grid">
+        <a class="reference-card" href="https://poloclub.github.io/transformer-explainer/" target="_blank" rel="noopener">
+          <strong>Transformer Explainer</strong>
+          <span>Polo Club of Data Science</span>
+          <p>모델 overview에서 수식/구조 레벨로 부드럽게 내려가는 구성을 학습 렌즈와 attention 단계 UI에 응용했습니다.</p>
+        </a>
+        <a class="reference-card" href="https://arxiv.org/abs/2408.04619" target="_blank" rel="noopener">
+          <strong>Transformer Explainer Paper</strong>
+          <span>IEEE VIS 2024 / arXiv</span>
+          <p>비전문가를 위한 abstraction-level transition 아이디어를 참고했습니다.</p>
+        </a>
+        <a class="reference-card" href="https://bbycroft.net/llm" target="_blank" rel="noopener">
+          <strong>LLM Visualization</strong>
+          <span>Brendan Bycroft</span>
+          <p>GPT-style network를 layer stack과 흐름 중심으로 보는 방식을 GPTModel 구조와 block stack에 응용했습니다.</p>
+        </a>
+        <a class="reference-card" href="https://jalammar.github.io/illustrated-transformer/" target="_blank" rel="noopener">
+          <strong>The Illustrated Transformer</strong>
+          <span>Jay Alammar</span>
+          <p>Q/K/V, self-attention, residual, final linear/softmax 설명 순서를 참고했습니다.</p>
+        </a>
+        <a class="reference-card" href="https://jalammar.github.io/illustrated-gpt2/" target="_blank" rel="noopener">
+          <strong>The Illustrated GPT-2</strong>
+          <span>Jay Alammar</span>
+          <p>decoder-only block, autoregressive generation, top-k/next-token 설명 흐름을 생성 루프에 응용했습니다.</p>
+        </a>
+        <a class="reference-card" href="https://docs.nvidia.com/nemo/rl/0.4.0/guides/dpo.html" target="_blank" rel="noopener">
+          <strong>NeMo RL DPO Guide</strong>
+          <span>NVIDIA</span>
+          <p>chosen/rejected와 frozen reference model의 관계를 Chapter 7 DPO 시각화에 반영했습니다.</p>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>관련 문서</span>
+    <a href="../docs/Chapter_3_Excercise_Attention.md">Chapter 3 Attention</a>
+    <a href="../docs/Chapter_4_Excercise_GPT.md">Chapter 4 GPT</a>
+    <a href="../docs/Chapter_5_Excercise_Pretraining.md">Chapter 5 Pretraining</a>
+    <a href="../docs/Chapter_6_Excercise_Finetuning_Classification.md">Chapter 6 Classification</a>
+    <a href="../docs/Chapter_6_Excercise_Finetuning_Classification_LoRA.md">Chapter 6 LoRA</a>
+    <a href="../docs/Chapter_7_Exercise_Follow_Instructions.md">Chapter 7 SFT</a>
+    <a href="../docs/Chapter_7_Exercise_Follow_Instructions_dpo.md">Chapter 7 DPO</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

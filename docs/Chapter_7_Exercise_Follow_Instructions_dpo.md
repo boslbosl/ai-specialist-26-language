@@ -4,6 +4,25 @@
 - 학습 주제: DPO 선호도 학습
 - 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
 
+## Overview Diagram
+
+```mermaid
+flowchart LR
+    A["Preference Dataset<br/>prompt / chosen / rejected"] --> B["Policy Model<br/>현재 학습할 모델"]
+    A --> C["Reference Model<br/>고정된 기준 모델"]
+    B --> D["Policy Logprob<br/>chosen과 rejected 확률 비교"]
+    C --> E["Reference Logprob<br/>기준 모델의 선호 차이 계산"]
+    D --> F["DPO Loss<br/>chosen을 rejected보다 더 선호하게 조정"]
+    E --> F
+    F --> G["Update Policy Only<br/>reference는 고정"]
+
+    subgraph Goal["DPO 목표"]
+        H["사람이 선호한 응답의 상대 확률을 높이고 덜 선호한 응답의 상대 확률을 낮추기"]
+    end
+
+    G -. "선호 정렬" .-> H
+```
+
 ## 핵심 흐름
 
 ```mermaid

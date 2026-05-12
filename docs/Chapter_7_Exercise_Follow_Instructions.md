@@ -4,6 +4,24 @@
 - 학습 주제: 지시 따르기 미세튜닝
 - 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
 
+## Overview Diagram
+
+```mermaid
+flowchart LR
+    A["Instruction Dataset<br/>instruction / input / output"] --> B["Prompt Formatting<br/>모델이 읽을 대화 형식으로 변환"]
+    B --> C["Tokenizer<br/>prompt와 response를 token id로 변환"]
+    C --> D["Label Masking<br/>응답 토큰만 loss에 반영"]
+    D --> E["GPT Fine-tuning<br/>instruction에 맞는 응답 생성 학습"]
+    E --> F["Generate Response<br/>새 instruction에 대한 응답 생성"]
+    F --> G["Evaluation<br/>정성 평가 또는 채점 모델 평가"]
+
+    subgraph Goal["SFT 목표"]
+        H["다음 토큰 예측 능력을 instruction-following 응답 형식으로 맞추기"]
+    end
+
+    G -. "튜닝 결과 확인" .-> H
+```
+
 ## 핵심 흐름
 
 ```mermaid

@@ -4,6 +4,25 @@
 - 학습 주제: 텍스트 분류 미세튜닝
 - 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
 
+## Overview Diagram
+
+```mermaid
+flowchart LR
+    A["분류용 텍스트 데이터"] --> B["Tokenizer + Padding<br/>길이가 다른 문장을 batch로 정렬"]
+    B --> C["Pretrained GPT Backbone<br/>문장 표현 계산"]
+    C --> D["Classification Head<br/>분류 클래스 점수 계산"]
+    D --> E["Class Logits<br/>[batch, num_classes]"]
+    E --> F["Loss + Accuracy<br/>정답 라벨과 비교"]
+    F --> G["Fine-tuning<br/>분류 문제에 맞게 가중치 업데이트"]
+    G --> C
+
+    subgraph Goal["미세튜닝 목표"]
+        H["사전학습된 언어 모델을 특정 분류 태스크에 맞게 재사용하기"]
+    end
+
+    F -. "평가 지표" .-> H
+```
+
 ## 핵심 흐름
 
 ```mermaid

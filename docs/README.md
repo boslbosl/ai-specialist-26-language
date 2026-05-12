@@ -27,3 +27,8 @@
 - [Chapter 7 Finetuning to Follow Instructions KR](llm_from_scratch_Chapter_7_Finetuning_to_Follow_Instructions_KR.md)
 - [Instruction Eval OpenAI](llm_from_scratch_llm-instruction-eval-openai.md)
 - [images/Chapter 4 Excercise GPT](llm_from_scratch_images_Chapter_4_Excercise_GPT.md)
+
+## 상세 다이어그램
+
+- [Chapter 3 Attention Diagrams](diagrams/Chapter_3_Excercise_Attention.md)
+- [Chapter 4 GPT Diagrams](diagrams/Chapter_4_Excercise_GPT.md)

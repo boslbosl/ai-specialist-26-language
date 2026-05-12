@@ -4,6 +4,26 @@
 - 학습 주제: 언어 모델 사전학습 루프
 - 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
 
+## Overview Diagram
+
+```mermaid
+flowchart LR
+    A["원문 텍스트 코퍼스"] --> B["Tokenizer<br/>텍스트를 token id로 변환"]
+    B --> C["Next-token Dataset<br/>input과 target을 한 칸 밀어 구성"]
+    C --> D["GPTModel<br/>각 위치의 다음 토큰 logits 계산"]
+    D --> E["Loss<br/>logits와 target 비교"]
+    E --> F["Backpropagation<br/>gradient 계산"]
+    F --> G["Optimizer Step<br/>모델 파라미터 업데이트"]
+    G --> H["평가와 샘플 생성<br/>학습 진행 상태 확인"]
+    H --> C
+
+    subgraph Goal["사전학습 목표"]
+        I["문맥을 보고 다음 토큰을 예측하는 일반 언어 모델 만들기"]
+    end
+
+    H -. "반복 후" .-> I
+```
+
 ## 핵심 흐름
 
 ```mermaid

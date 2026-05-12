@@ -1,20 +1,40 @@
-# Chapter 6 Excercise Finetuning Classification LoRA
+    # Chapter 6 Excercise Finetuning Classification LoRA
 
 - 노트북: [Chapter_6_Excercise_Finetuning_Classification_LoRA.ipynb](../Chapter_6_Excercise_Finetuning_Classification_LoRA.ipynb)
 - 학습 주제: LoRA 기반 파라미터 효율 미세튜닝
 - 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
 
+## Overview Diagram
+
+```mermaid
+flowchart LR
+    A["Pretrained GPT"] --> B["Base Weights Freeze<br/>기존 큰 가중치는 고정"]
+    B --> C["LoRA Adapter 삽입<br/>작은 low-rank 경로 추가"]
+    C --> D["Classification Fine-tuning<br/>LoRA 파라미터 중심으로 학습"]
+    D --> E["Class Logits<br/>분류 클래스 점수"]
+    E --> F["Loss + Accuracy<br/>라벨과 비교"]
+    F --> D
+
+    subgraph LoRA["LoRA 업데이트 경로"]
+        G["x"] --> H["A: down projection"]
+        H --> I["B: up projection"]
+        I --> J["scale alpha / r"]
+    end
+
+    J -. "원래 Linear 출력에 더함" .-> C
+```
+
 ## 핵심 흐름
 
 ```mermaid
 flowchart LR
-    A[입력 x] --> B[기존 Linear W 고정]
-    A --> C[LoRA A: down projection]
-    C --> D[LoRA B: up projection]
-    D --> E[scale alpha/r]
-    B --> F[W x + LoRA(x)]
+    A["입력 x"] --> B["기존 Linear W 고정"]
+    A --> C["LoRA A: down projection"]
+    C --> D["LoRA B: up projection"]
+    D --> E["scale alpha/r"]
+    B --> F["W x + LoRA(x)"]
     E --> F
-    F --> G[작은 수의 학습 파라미터로 미세튜닝]
+    F --> G["작은 수의 학습 파라미터로 미세튜닝"]
 ```
 
 ## 노트북 설명

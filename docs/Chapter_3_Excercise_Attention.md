@@ -1,50 +1,68 @@
-# Chapter 3 Excercise Attention
+# Chapter 3 Exercise Attention
 
 - 노트북: [Chapter_3_Excercise_Attention.ipynb](../Chapter_3_Excercise_Attention.ipynb)
-- 학습 주제: 셀프 어텐션과 멀티 헤드 어텐션
-- 대상 독자: 파이썬은 익숙하지만 `torch`와 Transformer/GPT 내부 구조는 처음 보는 개발자
+- 상세 다이어그램: [diagrams/Chapter_3_Excercise_Attention.md](diagrams/Chapter_3_Excercise_Attention.md)
+- 학습 주제: causal self-attention과 multi-head attention
+- 대상 독자: Python은 알지만 `torch`, Transformer, GPT 내부 구조는 처음 보는 개발자
+
+## 강의 오버뷰
+
+이 강의는 GPT가 문장을 읽을 때 "각 토큰이 이전 토큰 중 무엇을 얼마나 참고해야 하는가"를 계산하는 attention 메커니즘을 직접 구현합니다. 단순히 공식을 외우는 것이 아니라, 입력 텐서가 Query, Key, Value로 바뀌고, attention score와 mask를 거쳐 context vector가 되는 흐름을 코드와 shape로 따라갑니다.
+
+## 왜 배우는가
+
+- GPT는 다음 토큰을 예측할 때 앞의 문맥을 참고해야 합니다.
+- attention은 "현재 토큰이 어떤 과거 토큰을 중요하게 볼지"를 학습하는 핵심 장치입니다.
+- causal mask는 미래 토큰을 보지 못하게 막아서 GPT가 실제 생성 조건과 같은 방식으로 학습/추론하게 만듭니다.
+- multi-head attention은 여러 관점에서 문맥 관계를 동시에 보게 해 줍니다.
+
+## 무엇을 배우는가
+
+- `nn.Linear`로 입력 벡터를 Query, Key, Value로 투영하는 방법
+- `queries @ keys.transpose(...)`가 토큰 간 관련도 행렬을 만드는 방식
+- `masked_fill_(..., -torch.inf)`와 `softmax`로 미래 토큰 확률을 0으로 만드는 방식
+- attention weight로 Value를 가중합해 context vector를 만드는 방식
+- 여러 attention head를 병렬로 사용하고 다시 합치는 방식
 
 ## 핵심 흐름
 
 ```mermaid
-flowchart LR
-    X[입력 임베딩 X] --> Q[Query 선형층]
-    X --> K[Key 선형층]
-    X --> V[Value 선형층]
-    Q --> S[QK^T / sqrt d]
-    K --> S
-    S --> M[causal mask]
-    M --> P[softmax attention weights]
-    P --> O[weights @ V]
-    V --> O
-    O --> Y[문맥화된 토큰 표현]
+flowchart TD
+    A["입력 토큰 벡터<br/>[batch, tokens, d_in]"] --> B["Q/K/V projection<br/>nn.Linear"]
+    B --> C["attention scores<br/>Q @ K^T"]
+    C --> D["causal mask<br/>미래 토큰 차단"]
+    D --> E["scale + softmax<br/>참고 비율 계산"]
+    E --> F["weighted sum<br/>attention weights @ V"]
+    F --> G["context vectors<br/>문맥이 반영된 토큰 표현"]
+    G --> H["multi-head attention<br/>여러 관점의 관계 학습"]
 ```
 
-## 노트북 설명
+## 코드가 하는 일
 
-이 노트북은 셀프 어텐션과 멀티 헤드 어텐션를 실습 코드로 따라가며, 문자열/토큰/텐서/모델 출력이 어떻게 연결되는지 확인하는 자료입니다. 각 코드 셀에는 셀 목적, torch 관점, 실행 후 확인할 포인트를 주석으로 추가했습니다. 처음 읽을 때는 세부 수식보다 텐서의 차원 변화와 `nn.Module.forward()`의 입출력을 우선 추적하세요.
+- `CausalAttention`은 한 개의 masked self-attention head를 구현합니다.
+- 샘플 문장 벡터를 batch로 만든 뒤 attention 결과의 shape를 확인합니다.
+- `MultiHeadAttentionWrapper`는 여러 `CausalAttention` 모듈을 독립적으로 실행한 뒤 결과를 이어 붙입니다.
+- `MultiHeadAttention`은 실제 GPT에서 쓰는 방식에 가깝게, 하나의 Q/K/V projection 결과를 여러 head로 쪼갠 뒤 다시 합칩니다.
 
-## 학습 목표
+## 배우고 나면 알게 되는 것
 
-- Query, Key, Value의 역할을 텐서 shape 관점에서 이해합니다.
-- causal mask가 미래 토큰 참조를 막는 방식을 확인합니다.
-- 여러 head를 병렬로 쓰는 이유를 파악합니다.
-
-## torch 관점에서 볼 부분
-
-- attention score shape은 보통 (batch, heads, query_len, key_len)입니다.
-- softmax는 마지막 차원에서 각 query가 key들에 주는 가중치를 만듭니다.
+- GPT의 attention block이 입력 `[batch, tokens, embedding]`을 어떻게 다시 `[batch, tokens, embedding]` 형태의 문맥화된 표현으로 바꾸는지 설명할 수 있습니다.
+- attention score, attention weight, context vector의 차이를 구분할 수 있습니다.
+- causal mask가 왜 필요한지, softmax 이전에 `-inf`를 넣는 이유를 이해할 수 있습니다.
+- Chapter 4의 `TransformerBlock` 안에 들어가는 attention 모듈을 낯설지 않게 읽을 수 있습니다.
 
 ## 추천 읽기 순서
 
-1. 데이터가 문자열에서 토큰 ID 또는 텐서로 바뀌는 지점을 찾습니다.
-2. 모델 계층이 입력 텐서를 어떤 shape으로 받아 어떤 shape으로 반환하는지 확인합니다.
-3. loss 또는 평가 지표가 어떤 출력과 정답을 비교하는지 확인합니다.
-4. 생성, 분류, 평가처럼 노트북의 최종 목적에 해당하는 셀을 다시 실행하며 전체 흐름을 연결합니다.
+1. `inputs`와 `batch`의 shape를 먼저 확인합니다.
+2. `CausalAttention.forward()`에서 Q/K/V, score, weight, context vector의 shape를 따라갑니다.
+3. mask가 score 행렬의 어느 위치를 막는지 확인합니다.
+4. `MultiHeadAttentionWrapper`와 `MultiHeadAttention`의 차이를 비교합니다.
+5. 마지막으로 Chapter 4의 `TransformerBlock`에서 이 attention이 어디에 들어가는지 연결해서 봅니다.
 
 ## 자주 헷갈리는 포인트
 
-- `logits`는 확률이 아니라 정규화되지 않은 점수입니다.
-- `batch` 차원은 여러 샘플을 한 번에 처리하기 위해 앞에 붙는 차원입니다.
-- `sequence_length`는 한 샘플 안의 토큰 개수이며, GPT에서는 시간축처럼 다룹니다.
-- `vocab_size` 차원은 다음 토큰 후보 전체에 대한 점수입니다.
+- `attn_scores`는 아직 확률이 아니라 관련도 점수입니다.
+- `attn_weights`는 `softmax`를 거친 참고 비율이며, 마지막 차원의 합이 1입니다.
+- `values`는 실제로 섞이는 정보이고, Query/Key는 무엇을 얼마나 참고할지 정하는 데 쓰입니다.
+- causal attention은 현재 토큰과 과거 토큰만 볼 수 있고, 미래 토큰은 볼 수 없습니다.
+- multi-head는 같은 입력을 여러 관점으로 보는 구조이지, 단순히 같은 계산을 반복하는 장식이 아닙니다.
