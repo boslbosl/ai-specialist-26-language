@@ -222,3 +222,11 @@ logits:    [batch, seq_len, vocab_size]
 GPT 구현 파일을 열었을 때 각 class와 tensor shape가 어떤 흐름으로 연결되는지 이해할 수 있습니다.
 또한 텍스트 생성이 모델의 신비한 능력이 아니라, 다음 토큰 예측 loop의 반복이라는 점을 명확히 알게 됩니다.
 
+## 관련 FAQ
+
+- [`model.eval()`은 무엇을 하나?](../docs/FAQ.md#modeleval은-무엇을-하나)
+- [`with torch.no_grad():`를 쓰는 이유는?](../docs/FAQ.md#with-torchnograd를-쓰는-이유는)
+- [예시에서 dropout을 끄고 직접 생성 loop를 수행하는 이유는?](../docs/FAQ.md#예시에서-dropout을-끄고-직접-생성-loop를-수행하는-이유는)
+- [`torch.arange`는 무엇인가?](../docs/FAQ.md#torcharange는-무엇인가)
+- [`idx_cond`에서 `cond`는 무슨 뜻인가?](../docs/FAQ.md#idx_cond에서-cond는-무슨-뜻인가)
+- [Transformer block 안의 `emb_dim -> 4 * emb_dim -> GELU -> emb_dim`은 원래 구조인가?](../docs/FAQ.md#transformer-block-안의-emb_dim---4--emb_dim---gelu---emb_dim은-원래-구조인가)

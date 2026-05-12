@@ -36,3 +36,6 @@ flowchart LR
 처음 학습한다면 Chap1부터 순서대로 읽는 것이 좋습니다. 이미 Python에는 익숙하지만
 PyTorch와 Transformer가 낯설다면, 각 장의 `코드 관점`과 `shape 체크포인트`를 특히 집중해서 보면 됩니다.
 
+# FAQ
+
+자주 묻는 질문은 [LLM Hands-on FAQ](../docs/FAQ.md)에 정리되어 있습니다. 각 강의 노트의 끝에도 관련 FAQ 링크가 연결되어 있습니다.

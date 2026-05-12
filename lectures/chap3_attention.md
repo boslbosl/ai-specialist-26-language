@@ -217,3 +217,7 @@ PyTorch 코드에서 특히 볼 함수:
 Transformer의 핵심 계산인 self-attention을 shape와 의미 관점에서 읽을 수 있습니다.
 이제 Chap4에서 GPT block을 볼 때, attention이 전체 구조 안에서 어떤 역할을 하는지 연결할 수 있습니다.
 
+## 관련 FAQ
+
+- [MLA에서 RoPE는 무엇이고 왜 붙나?](../docs/FAQ.md#mla에서-rope는-무엇이고-왜-붙나)
+- [앞으로 더 나올 수 있는 LLM 최적화 방향은?](../docs/FAQ.md#앞으로-더-나올-수-있는-llm-최적화-방향은)

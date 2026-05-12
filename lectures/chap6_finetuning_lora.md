@@ -228,3 +228,9 @@ LoRA 코드에서 확인할 것:
 사전학습 GPT를 특정 분류 문제에 맞게 바꾸는 흐름을 이해할 수 있습니다.
 또한 LoRA가 왜 대형 모델 fine-tuning에서 중요한지, 코드에서 어떤 파라미터가 실제로 학습되는지 확인할 수 있습니다.
 
+## 관련 FAQ
+
+- [언더샘플링은 무엇이고 왜 쓰나?](../docs/FAQ.md#언더샘플링은-무엇이고-왜-쓰나)
+- [LoRA의 A/B 행렬은 왜 보통 `A=random`, `B=zero`로 초기화하나?](../docs/FAQ.md#lora의-ab-행렬은-왜-보통-arandom-bzero로-초기화하나)
+- [LoRA 적용과 classification `out_head` 교체 순서는 어떻게 잡아야 하나?](../docs/FAQ.md#lora-적용과-classification-out_head-교체-순서는-어떻게-잡아야-하나)
+- [`.pth` 파일은 무엇인가?](../docs/FAQ.md#pth-파일은-무엇인가)

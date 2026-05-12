@@ -244,3 +244,9 @@ prompt + rejected
 LLM이 단순히 다음 토큰 예측 모델에서 사용자 지시를 따르는 assistant로 바뀌는 과정을 이해할 수 있습니다.
 또한 SFT, RLHF, DPO의 차이를 구분하고, preference alignment 코드에서 어떤 log probability가 비교되는지 읽을 수 있습니다.
 
+## 관련 FAQ
+
+- [Chapter 7에서 JSON의 `input`과 학습 tensor의 `inputs`는 어떻게 다른가?](../docs/FAQ.md#chapter-7에서-json의-input과-학습-tensor의-inputs는-어떻게-다른가)
+- [SFT에서 `labels = [-100, -100, ...]`는 어디에 넣나?](../docs/FAQ.md#sft에서-labels---100--100-는-어디에-넣나)
+- [DPO에서도 `-100` labels를 직접 넣어야 하나?](../docs/FAQ.md#dpo에서도--100-labels를-직접-넣어야-하나)
+- [Chapter 7 SFT 예시에서 주의할 로직은?](../docs/FAQ.md#chapter-7-sft-예시에서-주의할-로직은)

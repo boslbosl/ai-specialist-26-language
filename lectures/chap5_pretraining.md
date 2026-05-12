@@ -207,3 +207,9 @@ for epoch in range(num_epochs):
 GPT가 어떻게 사전학습되는지, 학습 루프에서 loss와 optimizer가 어떤 역할을 하는지 이해할 수 있습니다.
 또한 이후 Chap6의 fine-tuning이 사전학습과 무엇이 같고 무엇이 다른지 비교할 준비가 됩니다.
 
+## 관련 FAQ
+
+- [Cross entropy는 무엇이고 왜 쓰나?](../docs/FAQ.md#cross-entropy는-무엇이고-왜-쓰나)
+- [`calc_loss_batch`에서 왜 `flatten(0, 1)`을 하나?](../docs/FAQ.md#calc_loss_batch에서-왜-flatten0-1을-하나)
+- [`.pth` 파일은 무엇인가?](../docs/FAQ.md#pth-파일은-무엇인가)
+- [`with torch.no_grad():`를 쓰는 이유는?](../docs/FAQ.md#with-torchnograd를-쓰는-이유는)

@@ -182,3 +182,8 @@ raw text
 텍스트 파일이 어떻게 `input_ids`, `target_ids`, embedding tensor로 바뀌는지 이해할 수 있습니다.
 이후 Attention과 GPT 구조를 볼 때, 모델 입력의 shape과 의미를 놓치지 않게 됩니다.
 
+## 관련 FAQ
+
+- [`tiktoken`에서 `tik`은 무슨 뜻인가?](../docs/FAQ.md#tiktoken에서-tik은-무슨-뜻인가)
+- [`stride`는 무슨 뜻인가?](../docs/FAQ.md#stride는-무슨-뜻인가)
+- [`drop_last`는 왜 켜거나 끄나?](../docs/FAQ.md#drop_last는-왜-켜거나-끄나)

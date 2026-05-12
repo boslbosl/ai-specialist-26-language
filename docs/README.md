@@ -4,6 +4,7 @@
 
 ## 루트 실습 노트북
 
+- [LLM Hands-on FAQ](FAQ.md)
 - [Chapter 1 Exercise Vector Space](Chapter_1_Exercise_Vector_Space.md)
 - [Chapter 2 Exercise Dataset](Chapter_2_Exercise_Dataset.md)
 - [Chapter 3 Excercise Attention](Chapter_3_Excercise_Attention.md)
