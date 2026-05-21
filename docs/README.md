@@ -4,6 +4,7 @@
 
 ## 루트 실습 노트북
 
+- [AI 용어집](AI_Glossary.md)
 - [LLM Hands-on FAQ](FAQ.md)
 - [Chapter 1 Exercise Vector Space](Chapter_1_Exercise_Vector_Space.md)
 - [Chapter 2 Exercise Dataset](Chapter_2_Exercise_Dataset.md)
