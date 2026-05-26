@@ -1,4 +1,6 @@
 .idea
+.vscode/
+.obsidian/
 .pyc
 classes
 datas/
@@ -15,4 +17,3 @@ logs/
 .tmp_reasoning_repo
 .tmp_tests
 tmp.ipynb
-.obsidian/workspace.json
