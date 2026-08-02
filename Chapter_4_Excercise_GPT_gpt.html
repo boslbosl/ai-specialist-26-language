@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Gpt Processing Explorer</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: transparent !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --main-surface-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --red: light-dark(rgb(186 38 35), rgb(250 66 62));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 10px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-visualize-standalone] {
+  background-color: var(--background) !important;
+}
+
+/* Generic mobile code-block hosts provide light/dark mode but no series palette.
+   AppBlock hosts set all six variables themselves. */
+:root:not([data-app-block-surface]) {
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(#f3883b, #f59a56);
+  --viz-series-3: light-dark(#5dc977, #74d58b);
+  --viz-series-4: light-dark(#eb77b1, #f08fc0);
+  --viz-series-5: light-dark(#9b79ec, #aa91ef);
+  --viz-series-6: light-dark(#3ab9b1, #5acbc2);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+:root:not([data-app-block-surface]) > body {
+  padding: 12px;
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The bundled tooltip runtime owns [data-tooltip]. AppBlock's CSS-only
+   pseudo-tooltip can widen dense grids even while hidden. */
+main [data-tooltip]::after {
+  content: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--interactive-label-primary-default, var(--primary-foreground));
+  background: var(--interactive-bg-primary-default, var(--foreground));
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(
+    in srgb,
+    var(--interactive-label-primary-default, var(--primary-foreground)) 50%,
+    transparent
+  );
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed="true"],
+    [aria-selected="true"],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+</style>
+</head>
+<body>
+<div id="gpt-processing-explorer">
+  <style>
+    #gpt-processing-explorer {
+      --gpe-step: var(--viz-series-1);
+      color: var(--foreground);
+      width: 100%;
+    }
+
+    #gpt-processing-explorer * {
+      box-sizing: border-box;
+    }
+
+    #gpt-processing-explorer .gpe-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    #gpt-processing-explorer .gpe-progress {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 5px;
+      flex: 1 1 280px;
+      min-width: 0;
+    }
+
+    #gpt-processing-explorer .gpe-progress-segment {
+      height: 5px;
+      border-radius: 999px;
+      background: var(--muted);
+      transition: background-color 220ms ease, transform 220ms ease;
+    }
+
+    #gpt-processing-explorer .gpe-progress-segment.is-done {
+      background: var(--gpe-step);
+    }
+
+    #gpt-processing-explorer .gpe-progress-segment.is-current {
+      background: var(--gpe-step);
+      transform: scaleY(1.8);
+    }
+
+    #gpt-processing-explorer .gpe-stage {
+      padding: 18px;
+      min-height: 430px;
+      overflow: hidden;
+    }
+
+    #gpt-processing-explorer .gpe-stage-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    #gpt-processing-explorer .gpe-kicker {
+      color: var(--muted-foreground);
+      margin-bottom: 4px;
+    }
+
+    #gpt-processing-explorer .gpe-title {
+      margin: 0;
+    }
+
+    #gpt-processing-explorer .gpe-shapes {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    #gpt-processing-explorer .gpe-shape {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+
+    #gpt-processing-explorer .gpe-shape strong {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    #gpt-processing-explorer .gpe-workspace {
+      position: relative;
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      padding: 8px 0;
+    }
+
+    #gpt-processing-explorer .gpe-scene {
+      width: 100%;
+      min-height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: gpe-scene-in 320ms ease both;
+    }
+
+    #gpt-processing-explorer .gpe-token-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    #gpt-processing-explorer .gpe-token {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 62px;
+      min-height: 54px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--card) 86%, transparent);
+      transition: transform 260ms ease, background-color 260ms ease, border-color 260ms ease;
+    }
+
+    #gpt-processing-explorer .gpe-token.is-active {
+      border-color: var(--gpe-step);
+      background: color-mix(in srgb, var(--gpe-step) 16%, var(--card));
+      transform: translateY(-6px);
+    }
+
+    #gpt-processing-explorer .gpe-token-id {
+      color: var(--muted-foreground);
+    }
+
+    #gpt-processing-explorer .gpe-arrow {
+      color: var(--muted-foreground);
+      display: inline-flex;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-shift-grid {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 18px 12px;
+      align-items: center;
+      width: min(100%, 680px);
+    }
+
+    #gpt-processing-explorer .gpe-row-label {
+      color: var(--muted-foreground);
+      text-align: right;
+    }
+
+    #gpt-processing-explorer .gpe-embedding-wrap {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      width: min(100%, 700px);
+    }
+
+    #gpt-processing-explorer .gpe-matrix {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(12px, 1fr));
+      gap: 4px;
+      width: 100%;
+      max-width: 175px;
+    }
+
+    #gpt-processing-explorer .gpe-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--viz-series-1) var(--gpe-alpha, 25%), var(--muted));
+      transform-origin: center;
+    }
+
+    #gpt-processing-explorer .gpe-matrix.is-animated .gpe-cell {
+      animation: gpe-cell-wave 720ms ease both;
+      animation-delay: calc(var(--gpe-i) * 18ms);
+    }
+
+    #gpt-processing-explorer .gpe-matrix-label {
+      text-align: center;
+      margin-top: 8px;
+      color: var(--muted-foreground);
+    }
+
+    #gpt-processing-explorer .gpe-qkv {
+      width: min(100%, 720px);
+      display: grid;
+      grid-template-columns: 1fr auto 2fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-source-vector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    #gpt-processing-explorer .gpe-source-vector span {
+      height: 42px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--viz-series-1) 25%, var(--muted));
+    }
+
+    #gpt-processing-explorer .gpe-qkv-branches {
+      display: grid;
+      gap: 9px;
+    }
+
+    #gpt-processing-explorer .gpe-qkv-branch {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-vector-line {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+    }
+
+    #gpt-processing-explorer .gpe-vector-line span {
+      height: 15px;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--gpe-color, var(--viz-series-1)) var(--gpe-alpha, 28%), var(--muted));
+      animation: gpe-slide-right 520ms ease both;
+      animation-delay: calc(var(--gpe-i) * 35ms);
+    }
+
+    #gpt-processing-explorer .gpe-head-layout {
+      width: min(100%, 720px);
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto minmax(220px, 1.4fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-heads {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    #gpt-processing-explorer .gpe-head {
+      min-height: 54px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--viz-series-2) 14%, var(--muted));
+      display: grid;
+      place-items: center;
+      color: var(--foreground);
+      animation: gpe-head-split 580ms ease both;
+      animation-delay: calc(var(--gpe-i) * 60ms);
+    }
+
+    #gpt-processing-explorer .gpe-attention-layout {
+      width: min(100%, 720px);
+      display: grid;
+      grid-template-columns: minmax(250px, 1fr) minmax(190px, 0.8fr);
+      gap: 24px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-heatmap {
+      display: grid;
+      grid-template-columns: 48px repeat(4, minmax(34px, 1fr));
+      grid-template-rows: 30px repeat(4, 42px);
+      gap: 4px;
+      align-items: stretch;
+    }
+
+    #gpt-processing-explorer .gpe-axis-label {
+      display: grid;
+      place-items: center;
+      color: var(--muted-foreground);
+    }
+
+    #gpt-processing-explorer .gpe-attn-cell {
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--viz-series-1) var(--gpe-alpha), var(--muted));
+      color: var(--foreground);
+      animation: gpe-pop 420ms ease both;
+      animation-delay: calc(var(--gpe-i) * 35ms);
+    }
+
+    #gpt-processing-explorer .gpe-attn-cell.is-masked {
+      background: color-mix(in srgb, var(--destructive) 8%, var(--muted));
+      color: var(--muted-foreground);
+    }
+
+    #gpt-processing-explorer .gpe-context-layout {
+      display: grid;
+      grid-template-columns: minmax(200px, 1fr) auto minmax(200px, 1fr);
+      gap: 18px;
+      align-items: center;
+      width: min(100%, 700px);
+    }
+
+    #gpt-processing-explorer .gpe-context-stack {
+      display: grid;
+      gap: 7px;
+    }
+
+    #gpt-processing-explorer .gpe-context-head {
+      height: 26px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--viz-series-2) calc(12% + var(--gpe-i) * 3%), var(--muted));
+      transform: translateX(calc(var(--gpe-i) * 3px));
+      animation: gpe-stack-in 520ms ease both;
+      animation-delay: calc(var(--gpe-i) * 55ms);
+    }
+
+    #gpt-processing-explorer .gpe-concat {
+      height: 86px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 3px;
+    }
+
+    #gpt-processing-explorer .gpe-concat span {
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--viz-series-2) calc(14% + var(--gpe-i) * 2%), var(--muted));
+      animation: gpe-pop 480ms ease both;
+      animation-delay: calc(var(--gpe-i) * 30ms);
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg {
+      width: min(100%, 720px);
+      height: 220px;
+      overflow: visible;
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg .gpe-line {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 2;
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg .gpe-flow-line {
+      fill: none;
+      stroke: var(--viz-series-1);
+      stroke-width: 3;
+      stroke-dasharray: 8 7;
+      animation: gpe-dash 900ms linear infinite;
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg .gpe-node {
+      fill: var(--card);
+      stroke: var(--border);
+      stroke-width: 1.5;
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg .gpe-node-active {
+      fill: color-mix(in srgb, var(--viz-series-1) 14%, var(--card));
+      stroke: var(--viz-series-1);
+    }
+
+    #gpt-processing-explorer .gpe-residual-svg text {
+      fill: var(--foreground);
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    #gpt-processing-explorer .gpe-logit-layout {
+      width: min(100%, 660px);
+      display: grid;
+      grid-template-columns: 1fr auto 1.2fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-bars {
+      display: grid;
+      gap: 9px;
+    }
+
+    #gpt-processing-explorer .gpe-bar-row {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) 42px;
+      gap: 7px;
+      align-items: center;
+    }
+
+    #gpt-processing-explorer .gpe-bar-track {
+      height: 12px;
+      background: var(--muted);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    #gpt-processing-explorer .gpe-bar-fill {
+      height: 100%;
+      width: var(--gpe-width);
+      background: var(--viz-series-1);
+      border-radius: inherit;
+      transform-origin: left;
+      animation: gpe-grow 620ms ease both;
+    }
+
+    #gpt-processing-explorer .gpe-loop {
+      display: grid;
+      gap: 20px;
+      justify-items: center;
+      width: min(100%, 680px);
+    }
+
+    #gpt-processing-explorer .gpe-loop-path {
+      width: 78%;
+      height: 34px;
+      border: 2px solid var(--viz-series-1);
+      border-top: 0;
+      border-radius: 0 0 18px 18px;
+      position: relative;
+      color: var(--viz-series-1);
+    }
+
+    #gpt-processing-explorer .gpe-loop-path::after {
+      content: "";
+      position: absolute;
+      left: -2px;
+      top: -6px;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-right: 9px solid currentColor;
+      animation: gpe-loop-pulse 900ms ease infinite;
+    }
+
+    #gpt-processing-explorer .gpe-code-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      padding-top: 13px;
+      margin-top: 14px;
+    }
+
+    #gpt-processing-explorer .gpe-explanation {
+      margin: 10px 0 0;
+      color: var(--muted-foreground);
+    }
+
+    #gpt-processing-explorer .gpe-pipeline {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 5px;
+      margin-top: 14px;
+    }
+
+    #gpt-processing-explorer .gpe-pipe-node {
+      min-width: 0;
+    }
+
+    @keyframes gpe-scene-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes gpe-cell-wave {
+      0% { transform: scale(0.75); opacity: 0.35; }
+      60% { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes gpe-slide-right {
+      from { transform: translateX(-20px) scaleX(0.45); opacity: 0.25; }
+      to { transform: translateX(0) scaleX(1); opacity: 1; }
+    }
+
+    @keyframes gpe-head-split {
+      from { transform: translateX(-36px) scaleX(1.7); opacity: 0; }
+      to { transform: translateX(0) scaleX(1); opacity: 1; }
+    }
+
+    @keyframes gpe-pop {
+      from { transform: scale(0.65); opacity: 0.25; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes gpe-stack-in {
+      from { transform: translateX(-28px); opacity: 0; }
+      to { transform: translateX(calc(var(--gpe-i) * 3px)); opacity: 1; }
+    }
+
+    @keyframes gpe-dash {
+      to { stroke-dashoffset: -30; }
+    }
+
+    @keyframes gpe-grow {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+
+    @keyframes gpe-loop-pulse {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(6px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #gpt-processing-explorer *,
+      #gpt-processing-explorer *::before,
+      #gpt-processing-explorer *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+      }
+    }
+
+    @media (max-width: 620px) {
+      #gpt-processing-explorer .gpe-stage {
+        padding: 14px;
+        min-height: 500px;
+      }
+
+      #gpt-processing-explorer .gpe-shapes {
+        justify-content: flex-start;
+      }
+
+      #gpt-processing-explorer .gpe-embedding-wrap,
+      #gpt-processing-explorer .gpe-qkv,
+      #gpt-processing-explorer .gpe-head-layout,
+      #gpt-processing-explorer .gpe-attention-layout,
+      #gpt-processing-explorer .gpe-context-layout,
+      #gpt-processing-explorer .gpe-logit-layout {
+        grid-template-columns: 1fr;
+      }
+
+      #gpt-processing-explorer .gpe-arrow {
+        justify-content: center;
+        transform: rotate(90deg);
+      }
+
+      #gpt-processing-explorer .gpe-matrix {
+        margin: 0 auto;
+      }
+
+      #gpt-processing-explorer .gpe-pipeline {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      #gpt-processing-explorer .gpe-workspace {
+        min-height: 340px;
+      }
+
+      #gpt-processing-explorer .gpe-scene {
+        min-height: 330px;
+      }
+
+      #gpt-processing-explorer .gpe-residual-svg {
+        height: 230px;
+      }
+    }
+  </style>
+
+  <div class="gpe-toolbar">
+    <div class="viz-controls" aria-label="재생 제어">
+      <button type="button" class="btn" id="gpe-prev"><i data-lucide="chevron-left" aria-hidden="true"></i>이전</button>
+      <button type="button" class="btn btn-primary" id="gpe-play"><i data-lucide="play" aria-hidden="true"></i><span>자동 재생</span></button>
+      <button type="button" class="btn" id="gpe-next">다음<i data-lucide="chevron-right" aria-hidden="true"></i></button>
+    </div>
+    <div class="gpe-progress" id="gpe-progress" role="progressbar" aria-label="GPT 처리 단계" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1"></div>
+  </div>
+
+  <section class="card gpe-stage" aria-live="polite">
+    <div class="gpe-stage-head">
+      <div>
+        <div class="gpe-kicker text-small" id="gpe-kicker"></div>
+        <h3 class="gpe-title" id="gpe-title"></h3>
+      </div>
+      <div class="gpe-shapes" id="gpe-shapes"></div>
+    </div>
+    <div class="gpe-workspace" id="gpe-workspace"></div>
+    <p class="gpe-explanation" id="gpe-explanation"></p>
+    <div class="gpe-code-line text-small"><i data-lucide="code-2" aria-hidden="true"></i><code id="gpe-code"></code></div>
+  </section>
+
+  <div class="gpe-pipeline" id="gpe-pipeline" aria-label="전체 처리 파이프라인"></div>
+
+  <script>
+    (function () {
+      const root = document.getElementById("gpt-processing-explorer");
+      if (!root) return;
+
+      const steps = [
+        {
+          label: "데이터 쌍",
+          title: "입력과 정답을 한 칸 어긋나게 만듭니다",
+          shapes: ["원문 → token IDs", "input [1, 4]", "target [1, 4]"],
+          explanation: "학습 시 각 위치는 바로 다음 토큰을 맞히도록 구성됩니다. 같은 토큰 열을 한 칸 이동한 것이 정답입니다.",
+          code: "input_chunk = token_ids[i:i+T]  ·  target_chunk = token_ids[i+1:i+T+1]",
+          scene: "shift"
+        },
+        {
+          label: "임베딩",
+          title: "토큰의 의미 벡터와 위치 벡터를 더합니다",
+          shapes: ["in_idx [1, 4]", "tok + pos", "x [1, 4, 768]"],
+          explanation: "토큰 임베딩은 무엇인지, 위치 임베딩은 어디에 있는지를 표현합니다. 두 벡터의 합이 Transformer의 입력입니다.",
+          code: "x = tok_embeds + pos_embeds",
+          scene: "embedding"
+        },
+        {
+          label: "Q · K · V",
+          title: "같은 입력을 세 관점의 벡터로 투영합니다",
+          shapes: ["x [1, 4, 768]", "Wq · Wk · Wv", "Q/K/V [1, 4, 768]"],
+          explanation: "Query는 찾고 싶은 것, Key는 비교 기준, Value는 실제로 가져올 정보입니다. 세 벡터는 각각 학습되는 선형 계층에서 만들어집니다.",
+          code: "queries = W_query(x)  ·  keys = W_key(x)  ·  values = W_value(x)",
+          scene: "qkv"
+        },
+        {
+          label: "헤드 분할",
+          title: "768차원을 12개의 64차원 관점으로 나눕니다",
+          shapes: ["view [1, 4, 12, 64]", "transpose", "[1, 12, 4, 64]"],
+          explanation: "view는 값을 바꾸지 않고 차원의 해석을 바꿉니다. transpose로 head 축을 앞으로 옮기면 12개 어텐션을 병렬 계산할 수 있습니다.",
+          code: "x.view(b, tokens, heads, head_dim).transpose(1, 2)",
+          scene: "heads"
+        },
+        {
+          label: "마스킹",
+          title: "현재 토큰이 과거까지만 보도록 가립니다",
+          shapes: ["QKᵀ [1, 12, 4, 4]", "causal mask", "weights 합 = 1"],
+          explanation: "위쪽 삼각형은 미래 토큰이므로 −∞로 가립니다. Softmax 뒤에는 보이는 위치의 가중치만 남고 각 행의 합은 1이 됩니다.",
+          code: "softmax((Q @ K.transpose(-2,-1)) / √64 + causal_mask)",
+          scene: "attention"
+        },
+        {
+          label: "Context",
+          title: "가중치로 Value를 섞고 헤드를 다시 합칩니다",
+          shapes: ["weights @ V", "12 × 64", "context [1, 4, 768]"],
+          explanation: "각 head가 중요하다고 판단한 Value를 가중합합니다. 12개의 결과를 이어 붙이고 out_proj를 거쳐 원래 임베딩 크기로 돌아옵니다.",
+          code: "context = (attn_weights @ values).transpose(1, 2).view(b, T, 768)",
+          scene: "context"
+        },
+        {
+          label: "Block ×12",
+          title: "Residual 경로를 보존하며 Attention과 FFN을 반복합니다",
+          shapes: ["Pre-LayerNorm", "Attention + x", "FFN + x"],
+          explanation: "Attention은 토큰 사이 정보를 섞고, FFN은 각 토큰을 독립적으로 가공합니다. Shortcut은 원래 정보를 더해 깊은 12개 블록의 학습을 안정화합니다.",
+          code: "x = x + Attention(LN(x));  x = x + FFN(LN(x))",
+          scene: "residual"
+        },
+        {
+          label: "Logits",
+          title: "마지막 위치 벡터를 50,257개 어휘 점수로 바꿉니다",
+          shapes: ["x [1, 4, 768]", "out_head", "logits [1, 4, 50257]"],
+          explanation: "출력 선형 계층은 각 위치마다 모든 어휘의 점수를 냅니다. 다음 토큰 생성에는 마지막 위치의 점수만 사용합니다.",
+          code: "logits = out_head(final_norm(x));  logits = logits[:, -1, :]",
+          scene: "logits"
+        },
+        {
+          label: "선택",
+          title: "가장 높은 점수의 다음 토큰을 고릅니다",
+          shapes: ["last logits [1, 50257]", "argmax", "idx_next [1, 1]"],
+          explanation: "이 노트북은 가장 큰 로짓 하나를 고르는 greedy decoding을 사용합니다. 학습되지 않은 모델이라 실제 문장은 의미가 없을 수 있습니다.",
+          code: "idx_next = torch.argmax(logits, dim=-1, keepdim=True)",
+          scene: "select"
+        },
+        {
+          label: "생성 루프",
+          title: "선택한 토큰을 뒤에 붙이고 다시 모델에 넣습니다",
+          shapes: ["idx [1, 4]", "concat", "idx [1, 5] → 반복"],
+          explanation: "문맥의 끝에 새 토큰을 붙인 뒤 같은 forward 과정을 반복합니다. max_new_tokens가 10이면 이 루프가 10번 실행됩니다.",
+          code: "idx = torch.concat((idx, idx_next), dim=1)",
+          scene: "loop"
+        }
+      ];
+
+      const els = {
+        kicker: root.querySelector("#gpe-kicker"),
+        title: root.querySelector("#gpe-title"),
+        shapes: root.querySelector("#gpe-shapes"),
+        workspace: root.querySelector("#gpe-workspace"),
+        explanation: root.querySelector("#gpe-explanation"),
+        code: root.querySelector("#gpe-code"),
+        progress: root.querySelector("#gpe-progress"),
+        pipeline: root.querySelector("#gpe-pipeline"),
+        prev: root.querySelector("#gpe-prev"),
+        next: root.querySelector("#gpe-next"),
+        play: root.querySelector("#gpe-play")
+      };
+
+      let current = 0;
+      let timer = null;
+
+      function token(text, id, active) {
+        return '<span class="gpe-token' + (active ? ' is-active' : '') + '"><span>' + text + '</span><span class="gpe-token-id text-small">' + id + '</span></span>';
+      }
+
+      function arrow() {
+        return '<span class="gpe-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span>';
+      }
+
+      function matrix(label, animated, offset) {
+        const cells = Array.from({ length: 24 }, function (_, i) {
+          const alpha = 12 + ((i * 17 + offset * 11) % 48);
+          return '<span class="gpe-cell" style="--gpe-i:' + i + ';--gpe-alpha:' + alpha + '%"></span>';
+        }).join('');
+        return '<div><div class="gpe-matrix' + (animated ? ' is-animated' : '') + '">' + cells + '</div><div class="gpe-matrix-label text-small">' + label + '</div></div>';
+      }
+
+      function shiftScene() {
+        const input = [token('Hello', '15496', true), token(',', '11'), token(' I', '314'), token(' am', '716')].join('');
+        const target = [token(',', '11'), token(' I', '314'), token(' am', '716'), token(' a', '257', true)].join('');
+        return '<div class="gpe-scene"><div class="gpe-shift-grid"><div class="gpe-row-label text-small">INPUT</div><div class="gpe-token-row">' + input + '</div><div class="gpe-row-label text-small">TARGET</div><div class="gpe-token-row">' + target + '</div></div></div>';
+      }
+
+      function embeddingScene() {
+        return '<div class="gpe-scene"><div class="gpe-embedding-wrap">' + matrix('Token embedding', true, 1) + '<span aria-hidden="true">+</span>' + matrix('Position embedding', true, 2) + '<span aria-hidden="true">=</span>' + matrix('Transformer 입력 x', true, 3) + '</div></div>';
+      }
+
+      function qkvScene() {
+        function branch(name, color, seed) {
+          const spans = Array.from({ length: 8 }, function (_, i) {
+            return '<span style="--gpe-i:' + i + ';--gpe-color:' + color + ';--gpe-alpha:' + (16 + ((i + seed) % 5) * 9) + '%"></span>';
+          }).join('');
+          return '<div class="gpe-qkv-branch"><strong>' + name + '</strong><div class="gpe-vector-line">' + spans + '</div></div>';
+        }
+        return '<div class="gpe-scene"><div class="gpe-qkv"><div><div class="gpe-source-vector"><span></span><span></span><span></span><span></span></div><div class="gpe-matrix-label text-small">입력 x</div></div>' + arrow() + '<div class="gpe-qkv-branches">' + branch('Q', 'var(--viz-series-1)', 0) + branch('K', 'var(--viz-series-2)', 1) + branch('V', 'var(--viz-series-3)', 2) + '</div></div></div>';
+      }
+
+      function headsScene() {
+        const heads = Array.from({ length: 6 }, function (_, i) {
+          return '<div class="gpe-head" style="--gpe-i:' + i + '">Head ' + (i + 1) + '<span class="text-small text-muted">64 dims</span></div>';
+        }).join('');
+        return '<div class="gpe-scene"><div class="gpe-head-layout">' + matrix('Q [1, 4, 768]', true, 4) + arrow() + '<div><div class="gpe-heads">' + heads + '</div><div class="gpe-matrix-label text-small">… 총 12 heads · 병렬 처리</div></div></div></div>';
+      }
+
+      function attentionScene() {
+        const names = ['Hello', ',', 'I', 'am'];
+        const weights = [[100, 0, 0, 0], [42, 58, 0, 0], [18, 27, 55, 0], [10, 18, 31, 41]];
+        let grid = '<div></div>' + names.map(function (n) { return '<div class="gpe-axis-label text-small">' + n + '</div>'; }).join('');
+        weights.forEach(function (row, r) {
+          grid += '<div class="gpe-axis-label text-small">' + names[r] + '</div>';
+          row.forEach(function (value, c) {
+            const masked = c > r;
+            grid += '<div class="gpe-attn-cell' + (masked ? ' is-masked' : '') + '" style="--gpe-alpha:' + (masked ? 8 : Math.max(10, value)) + '%;--gpe-i:' + (r * 4 + c) + '">' + (masked ? '×' : value + '%') + '</div>';
+          });
+        });
+        return '<div class="gpe-scene"><div class="gpe-attention-layout"><div class="gpe-heatmap" role="img" aria-label="미래 위치가 마스킹된 4 곱하기 4 causal attention 가중치 예시">' + grid + '</div><div><span class="viz-badge">예시: Head 1</span><p class="text-small">행은 Query, 열은 Key입니다. 마지막 토큰은 앞의 네 위치를 모두 볼 수 있지만 첫 토큰은 자기 자신만 봅니다.</p></div></div></div>';
+      }
+
+      function contextScene() {
+        const stack = Array.from({ length: 6 }, function (_, i) {
+          return '<div class="gpe-context-head" style="--gpe-i:' + i + '"></div>';
+        }).join('');
+        const concat = Array.from({ length: 12 }, function (_, i) {
+          return '<span style="--gpe-i:' + i + '"></span>';
+        }).join('');
+        return '<div class="gpe-scene"><div class="gpe-context-layout"><div><div class="gpe-context-stack">' + stack + '</div><div class="gpe-matrix-label text-small">Head별 context · 12 × [4, 64]</div></div>' + arrow() + '<div><div class="gpe-concat">' + concat + '</div><div class="gpe-matrix-label text-small">concat + out_proj · [4, 768]</div></div></div></div>';
+      }
+
+      function residualScene() {
+        return '<div class="gpe-scene"><svg class="gpe-residual-svg" viewBox="0 0 720 220" role="img" aria-labelledby="gpe-res-title gpe-res-desc"><title id="gpe-res-title">Transformer block residual 흐름</title><desc id="gpe-res-desc">입력이 LayerNorm, Attention, 더하기, LayerNorm, Feed Forward, 더하기를 지나며 두 shortcut 경로로 보존됩니다.</desc><path class="gpe-line" d="M70 110 H650"></path><path class="gpe-flow-line" d="M70 110 H650"></path><path class="gpe-line" d="M70 110 C70 25,330 25,330 110"></path><path class="gpe-line" d="M330 110 C330 195,650 195,650 110"></path><rect class="gpe-node" x="105" y="80" rx="8" width="92" height="60"></rect><rect class="gpe-node gpe-node-active" x="220" y="80" rx="8" width="92" height="60"></rect><circle class="gpe-node gpe-node-active" cx="330" cy="110" r="20"></circle><rect class="gpe-node" x="370" y="80" rx="8" width="92" height="60"></rect><rect class="gpe-node gpe-node-active" x="485" y="80" rx="8" width="92" height="60"></rect><circle class="gpe-node gpe-node-active" cx="650" cy="110" r="20"></circle><text x="151" y="110">LN</text><text x="266" y="110">Attention</text><text x="330" y="110">+</text><text x="416" y="110">LN</text><text x="531" y="110">FFN ×4</text><text x="650" y="110">+</text><text x="190" y="28" class="text-small">shortcut</text><text x="490" y="194" class="text-small">shortcut</text></svg></div>';
+      }
+
+      function barRows(selectMode) {
+        const values = [
+          { label: ' a', value: 86 },
+          { label: ' here', value: 63 },
+          { label: ' not', value: 41 },
+          { label: '.', value: 24 }
+        ];
+        return values.map(function (item, i) {
+          return '<div class="gpe-bar-row' + (selectMode && i === 0 ? ' is-selected' : '') + '"><span>' + item.label + '</span><div class="gpe-bar-track"><div class="gpe-bar-fill" style="--gpe-width:' + item.value + '%"></div></div><span class="text-small">' + item.value + '</span></div>';
+        }).join('');
+      }
+
+      function logitsScene() {
+        return '<div class="gpe-scene"><div class="gpe-logit-layout">' + matrix('마지막 위치 [768]', true, 6) + arrow() + '<div><div class="gpe-bars">' + barRows(false) + '</div><div class="gpe-matrix-label text-small">상위 로짓 예시 · 전체 50,257개</div></div></div></div>';
+      }
+
+      function selectScene() {
+        return '<div class="gpe-scene"><div class="gpe-logit-layout"><div><div class="gpe-bars">' + barRows(true) + '</div></div>' + arrow() + '<div class="gpe-token-row">' + token(' a', '257', true) + '</div></div></div>';
+      }
+
+      function loopScene() {
+        const tokens = [token('Hello', '15496'), token(',', '11'), token(' I', '314'), token(' am', '716'), token(' a', '257', true)].join('');
+        return '<div class="gpe-scene"><div class="gpe-loop"><div class="gpe-token-row">' + tokens + '</div><div class="gpe-loop-path" aria-hidden="true"></div><div class="text-small text-muted">새 idx → context 자르기 → model(idx_cond) → 다음 토큰</div></div></div>';
+      }
+
+      const scenes = {
+        shift: shiftScene,
+        embedding: embeddingScene,
+        qkv: qkvScene,
+        heads: headsScene,
+        attention: attentionScene,
+        context: contextScene,
+        residual: residualScene,
+        logits: logitsScene,
+        select: selectScene,
+        loop: loopScene
+      };
+
+      function renderStaticNavigation() {
+        els.progress.innerHTML = steps.map(function (_, i) {
+          return '<span class="gpe-progress-segment" data-index="' + i + '"></span>';
+        }).join('');
+        els.pipeline.innerHTML = steps.map(function (step, i) {
+          return '<button type="button" class="btn btn-ghost gpe-pipe-node text-small" data-step="' + i + '" aria-label="' + (i + 1) + '단계 ' + step.label + '">' + step.label + '</button>';
+        }).join('');
+      }
+
+      function render() {
+        const step = steps[current];
+        els.kicker.textContent = (current + 1) + ' / ' + steps.length + ' · Chapter 4 GPT forward';
+        els.title.textContent = step.title;
+        els.shapes.innerHTML = step.shapes.map(function (shape, i) {
+          return '<span class="gpe-shape text-small">' + (i === 1 ? '<strong>' + shape + '</strong>' : shape) + '</span>';
+        }).join('');
+        els.workspace.innerHTML = scenes[step.scene]();
+        els.explanation.textContent = step.explanation;
+        els.code.textContent = step.code;
+        els.progress.setAttribute('aria-valuenow', String(current + 1));
+
+        els.progress.querySelectorAll('.gpe-progress-segment').forEach(function (segment, i) {
+          segment.classList.toggle('is-done', i < current);
+          segment.classList.toggle('is-current', i === current);
+        });
+        els.pipeline.querySelectorAll('.gpe-pipe-node').forEach(function (node, i) {
+          node.classList.toggle('is-done', i < current);
+          node.classList.toggle('is-current', i === current);
+          node.setAttribute('aria-current', i === current ? 'step' : 'false');
+          node.setAttribute('aria-pressed', i === current ? 'true' : 'false');
+        });
+
+        els.prev.disabled = current === 0;
+        els.next.disabled = current === steps.length - 1;
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+
+      function setStep(next) {
+        current = Math.max(0, Math.min(steps.length - 1, next));
+        render();
+      }
+
+      function stop() {
+        if (timer) window.clearInterval(timer);
+        timer = null;
+        els.play.classList.remove('is-playing');
+        els.play.innerHTML = '<i data-lucide="play" aria-hidden="true"></i><span>자동 재생</span>';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+
+      function play() {
+        if (timer) {
+          stop();
+          return;
+        }
+        if (current === steps.length - 1) setStep(0);
+        els.play.innerHTML = '<i data-lucide="pause" aria-hidden="true"></i><span>일시정지</span>';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+        timer = window.setInterval(function () {
+          if (current >= steps.length - 1) {
+            stop();
+          } else {
+            setStep(current + 1);
+          }
+        }, 2400);
+      }
+
+      els.prev.addEventListener('click', function () { stop(); setStep(current - 1); });
+      els.next.addEventListener('click', function () { stop(); setStep(current + 1); });
+      els.play.addEventListener('click', play);
+      els.pipeline.addEventListener('click', function (event) {
+        const node = event.target.closest('[data-step]');
+        if (!node) return;
+        stop();
+        setStep(Number(node.getAttribute('data-step')));
+      });
+      root.addEventListener('keydown', function (event) {
+        if (event.key === 'ArrowLeft') { stop(); setStep(current - 1); }
+        if (event.key === 'ArrowRight') { stop(); setStep(current + 1); }
+      });
+
+      renderStaticNavigation();
+      render();
+    })();
+  </script>
+</div>
+
+<script id="codex-visualization-floating-ui-core" src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script id="codex-visualization-floating-ui-dom" src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script id="codex-visualization-tooltip">/* oxlint-disable typescript/no-unsafe-argument, typescript/no-unsafe-call, typescript/no-unsafe-return */
+// Runs inside the visualization sandbox, not the host webview.
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide-initialization">(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+</body>
+</html>

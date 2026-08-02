@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 4. GPT 프로세싱 시각화 — v2</title>
+    <meta name="description" content="GPT 모델 내부 프로세싱 동작을 단계별 인터랙티브 애니메이션으로 시각화">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #06080f;
+            --bg-card: #0f1320;
+            --bg-panel: #141830;
+            --bg-surface: #1a1e38;
+            --text: #e8ecf4;
+            --text-dim: #8892b0;
+            --text-muted: #4a5278;
+            --blue: #4f8ff7;
+            --purple: #9b6dff;
+            --cyan: #00d4ff;
+            --green: #00e88f;
+            --amber: #ffb347;
+            --rose: #ff5a8a;
+            --indigo: #6c7cff;
+            --border: rgba(100,120,180,0.12);
+            --glow-blue: 0 0 40px rgba(79,143,247,0.2);
+            --glow-purple: 0 0 40px rgba(155,109,255,0.2);
+            --glow-cyan: 0 0 40px rgba(0,212,255,0.2);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family:'Inter',-apple-system,sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ─── Scroll Progress ─── */
+        .scroll-bar { position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--blue),var(--purple),var(--cyan)); z-index:10000; transition:width .1s; }
+
+        /* ─── Nav ─── */
+        .nav {
+            position:fixed; top:0; left:0; right:0; z-index:9999;
+            background:rgba(6,8,15,0.88); backdrop-filter:blur(20px);
+            border-bottom:1px solid var(--border); padding:0 2rem;
+        }
+        .nav-inner { max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-brand { font-weight:800; font-size:.95rem; background:linear-gradient(135deg,var(--cyan),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .nav-pills { display:flex; gap:.3rem; list-style:none; }
+        .nav-pills a { color:var(--text-dim); text-decoration:none; font-size:.75rem; font-weight:500; padding:.35rem .7rem; border-radius:8px; transition:all .2s; }
+        .nav-pills a:hover,.nav-pills a.active { color:var(--text); background:rgba(79,143,247,.12); }
+
+        /* ─── Hero ─── */
+        .hero {
+            position:relative; min-height:55vh; display:flex; align-items:center; justify-content:center; text-align:center;
+            background: radial-gradient(ellipse at 30% 40%, rgba(79,143,247,.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 60%, rgba(155,109,255,.08) 0%, transparent 50%),
+                        linear-gradient(180deg, #0a0d1a 0%, var(--bg) 100%);
+            padding:5rem 2rem 3rem; overflow:hidden;
+        }
+        .hero::after { content:''; position:absolute; bottom:0; left:0; right:0; height:100px; background:linear-gradient(transparent,var(--bg)); }
+        .hero-content { position:relative; z-index:2; }
+        .hero-badge { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem 1rem; border-radius:100px; background:rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.25); font-size:.78rem; font-weight:500; color:var(--cyan); margin-bottom:1.2rem; }
+        .hero h1 { font-size:clamp(2rem,5vw,3.2rem); font-weight:900; letter-spacing:-.03em; margin-bottom:.8rem; line-height:1.15; }
+        .hero .grad { background:linear-gradient(135deg,#00d4ff,#9b6dff,#ff5a8a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .hero p { font-size:1rem; color:var(--text-dim); max-width:580px; margin:0 auto 1.5rem; }
+
+        /* ─── Container ─── */
+        .container { max-width:1100px; margin:0 auto; padding:0 1.5rem 5rem; position:relative; z-index:1; }
+
+        /* ─── Section ─── */
+        .viz-section { margin:4rem 0; }
+        .viz-section-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+        .viz-num { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; flex-shrink:0; color:#fff; }
+        .viz-num.n1 { background:linear-gradient(135deg,var(--amber),#e87d2f); box-shadow:0 4px 15px rgba(255,179,71,.3); }
+        .viz-num.n2 { background:linear-gradient(135deg,var(--blue),var(--indigo)); box-shadow:0 4px 15px rgba(79,143,247,.3); }
+        .viz-num.n3 { background:linear-gradient(135deg,var(--purple),#c55dff); box-shadow:0 4px 15px rgba(155,109,255,.3); }
+        .viz-num.n4 { background:linear-gradient(135deg,var(--green),#00c4a0); box-shadow:0 4px 15px rgba(0,232,143,.3); }
+        .viz-num.n5 { background:linear-gradient(135deg,var(--cyan),var(--blue)); box-shadow:0 4px 15px rgba(0,212,255,.3); }
+        .viz-title { font-size:1.3rem; font-weight:800; letter-spacing:-.02em; }
+        .viz-desc { color:var(--text-dim); font-size:.88rem; margin-bottom:1.5rem; line-height:1.7; }
+
+        /* ─── Panel (common) ─── */
+        .panel {
+            background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
+            overflow:hidden; transition:all .3s; margin-bottom:1.5rem;
+        }
+        .panel:hover { border-color:rgba(79,143,247,.2); box-shadow:var(--glow-blue); }
+        .panel-header {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:1rem 1.5rem; background:rgba(255,255,255,.015); border-bottom:1px solid var(--border);
+        }
+        .panel-label { font-size:.78rem; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
+        .panel-body { padding:1.5rem; }
+
+        /* ─── Buttons ─── */
+        .btn {
+            display:inline-flex; align-items:center; gap:.4rem;
+            padding:.55rem 1.2rem; border-radius:10px; font-size:.82rem; font-weight:600;
+            border:none; cursor:pointer; transition:all .25s; font-family:'Inter',sans-serif;
+        }
+        .btn-primary { background:linear-gradient(135deg,var(--blue),var(--purple)); color:#fff; box-shadow:0 4px 15px rgba(79,143,247,.3); }
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(79,143,247,.4); }
+        .btn-primary:active { transform:translateY(0); }
+        .btn-secondary { background:rgba(255,255,255,.06); color:var(--text); border:1px solid var(--border); }
+        .btn-secondary:hover { background:rgba(79,143,247,.1); border-color:rgba(79,143,247,.3); }
+        .btn-sm { padding:.4rem .8rem; font-size:.75rem; border-radius:8px; }
+        .btn-group { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
+
+        /* ─── TOKEN EMBEDDING VIZ ─── */
+        .token-flow { display:flex; flex-direction:column; align-items:center; gap:0; }
+        .token-row { display:flex; align-items:center; gap:.5rem; margin:.3rem 0; flex-wrap:wrap; justify-content:center; }
+        .token-chip {
+            padding:.45rem .9rem; border-radius:10px; font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600;
+            transition:all .4s cubic-bezier(.4,0,.2,1); position:relative; white-space:nowrap;
+        }
+        .tc-word { background:rgba(255,179,71,.12); color:var(--amber); border:1px solid rgba(255,179,71,.25); }
+        .tc-id { background:rgba(79,143,247,.12); color:var(--blue); border:1px solid rgba(79,143,247,.25); }
+        .tc-emb { background:rgba(155,109,255,.12); color:var(--purple); border:1px solid rgba(155,109,255,.25); }
+        .tc-pos { background:rgba(0,212,255,.12); color:var(--cyan); border:1px solid rgba(0,212,255,.25); }
+        .tc-sum { background:rgba(0,232,143,.12); color:var(--green); border:1px solid rgba(0,232,143,.25); }
+        .flow-arrow {
+            width:2px; height:24px; background:linear-gradient(to bottom,rgba(100,120,180,.3),rgba(100,120,180,.1));
+            position:relative; margin:.1rem 0;
+        }
+        .flow-arrow::after { content:'▼'; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%); font-size:.55rem; color:rgba(100,120,180,.4); }
+        .flow-label { font-size:.72rem; color:var(--text-muted); font-weight:500; margin:.4rem 0; text-align:center; }
+        .token-chip.highlight { transform:scale(1.08); box-shadow:0 0 20px currentColor; z-index:2; }
+
+        /* ─── MATRIX / HEATMAP ─── */
+        .matrix-container { display:flex; flex-direction:column; align-items:center; gap:1rem; }
+        .matrix-grid { display:inline-grid; gap:2px; }
+        .matrix-cell {
+            width:48px; height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+            font-family:'JetBrains Mono',monospace; font-size:.65rem; font-weight:600;
+            transition:all .35s ease; cursor:default; position:relative;
+        }
+        .matrix-cell:hover { transform:scale(1.15); z-index:2; }
+        .matrix-header-cell {
+            width:48px; height:28px; display:flex; align-items:center; justify-content:center;
+            font-family:'JetBrains Mono',monospace; font-size:.68rem; font-weight:600; color:var(--text-dim);
+        }
+        .matrix-label { font-size:.78rem; font-weight:600; color:var(--text-dim); margin-bottom:.3rem; }
+        .matrix-row-label {
+            width:60px; height:48px; display:flex; align-items:center; justify-content:flex-end; padding-right:8px;
+            font-family:'JetBrains Mono',monospace; font-size:.68rem; font-weight:600; color:var(--text-dim);
+        }
+        .matrix-wrapper { display:flex; align-items:flex-start; gap:0; }
+
+        /* ─── ATTN STEP CARDS ─── */
+        .step-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; }
+        .step-card {
+            background:var(--bg-panel); border:1px solid var(--border); border-radius:14px;
+            padding:1.2rem; transition:all .3s; position:relative; overflow:hidden;
+        }
+        .step-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+        .step-card.s1::before { background:linear-gradient(90deg,var(--blue),var(--indigo)); }
+        .step-card.s2::before { background:linear-gradient(90deg,var(--purple),var(--rose)); }
+        .step-card.s3::before { background:linear-gradient(90deg,var(--cyan),var(--green)); }
+        .step-card.s4::before { background:linear-gradient(90deg,var(--amber),var(--rose)); }
+        .step-card.s5::before { background:linear-gradient(90deg,var(--green),var(--cyan)); }
+        .step-card:hover { transform:translateY(-3px); border-color:rgba(79,143,247,.2); }
+        .step-card .num { font-size:.7rem; font-weight:700; color:var(--text-muted); margin-bottom:.4rem; }
+        .step-card .title { font-size:.9rem; font-weight:700; margin-bottom:.35rem; }
+        .step-card .desc { font-size:.78rem; color:var(--text-dim); line-height:1.5; }
+        .step-card .shape { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--cyan); margin-top:.5rem; background:rgba(0,212,255,.06); padding:.25rem .6rem; border-radius:6px; display:inline-block; }
+
+        /* ─── TRANSFORMER BLOCK ANIM ─── */
+        .tf-block-viz {
+            display:flex; flex-direction:column; align-items:center; gap:0; position:relative;
+            padding:2rem 0;
+        }
+        .tf-node {
+            padding:.7rem 1.6rem; border-radius:12px; font-weight:600; font-size:.85rem;
+            text-align:center; transition:all .4s cubic-bezier(.4,0,.2,1); position:relative;
+            min-width:260px;
+        }
+        .tf-node .sub { font-size:.7rem; font-weight:400; opacity:.7; display:block; margin-top:.15rem; }
+        .tf-node.active { transform:scale(1.06); z-index:2; }
+        .tf-node.done { opacity:.5; }
+        .tf-input { background:rgba(255,179,71,.1); border:1px solid rgba(255,179,71,.25); color:var(--amber); }
+        .tf-norm { background:rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.25); color:var(--cyan); }
+        .tf-attn { background:rgba(155,109,255,.1); border:1px solid rgba(155,109,255,.25); color:var(--purple); }
+        .tf-drop { background:rgba(100,120,180,.08); border:1px solid rgba(100,120,180,.2); color:var(--text-dim); }
+        .tf-res { background:rgba(0,232,143,.1); border:1px solid rgba(0,232,143,.25); color:var(--green); }
+        .tf-ff { background:rgba(79,143,247,.1); border:1px solid rgba(79,143,247,.25); color:var(--blue); }
+        .tf-out { background:rgba(255,90,138,.1); border:1px solid rgba(255,90,138,.25); color:var(--rose); }
+        .tf-arrow { width:2px; height:22px; background:linear-gradient(to bottom,rgba(100,120,180,.25),rgba(100,120,180,.08)); position:relative; }
+        .tf-arrow::after { content:'▼'; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%); font-size:.5rem; color:rgba(100,120,180,.3); }
+        .tf-node.active.tf-input { box-shadow:0 0 25px rgba(255,179,71,.3); }
+        .tf-node.active.tf-norm { box-shadow:0 0 25px rgba(0,212,255,.3); }
+        .tf-node.active.tf-attn { box-shadow:0 0 25px rgba(155,109,255,.3); }
+        .tf-node.active.tf-drop { box-shadow:0 0 25px rgba(100,120,180,.2); }
+        .tf-node.active.tf-res { box-shadow:0 0 25px rgba(0,232,143,.3); }
+        .tf-node.active.tf-ff { box-shadow:0 0 25px rgba(79,143,247,.3); }
+        .tf-node.active.tf-out { box-shadow:0 0 25px rgba(255,90,138,.3); }
+        .tf-repeat { border:2px dashed rgba(155,109,255,.2); border-radius:16px; padding:1rem 1.5rem; position:relative; margin:.25rem 0; }
+        .tf-repeat-label { position:absolute; top:-10px; right:16px; background:var(--bg-card); padding:0 .5rem; font-size:.68rem; font-weight:600; color:var(--purple); }
+        .tf-data-pill {
+            position:absolute; left:calc(50% + 180px); top:50%; transform:translateY(-50%);
+            background:var(--bg-surface); border:1px solid var(--border); border-radius:10px;
+            padding:.5rem .8rem; font-family:'JetBrains Mono',monospace; font-size:.68rem;
+            color:var(--cyan); white-space:nowrap; opacity:0; transition:all .4s;
+        }
+        .tf-data-pill.visible { opacity:1; }
+
+        /* ─── GENERATION LOOP SIMULATOR ─── */
+        .gen-sim { display:flex; flex-direction:column; gap:1rem; }
+        .gen-context {
+            background:var(--bg-panel); border:1px solid var(--border); border-radius:14px;
+            padding:1.2rem; min-height:100px;
+        }
+        .gen-context-label { font-size:.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.6rem; }
+        .gen-tokens { display:flex; flex-wrap:wrap; gap:.35rem; min-height:40px; align-items:center; }
+        .gen-token {
+            padding:.35rem .65rem; border-radius:8px; font-family:'JetBrains Mono',monospace;
+            font-size:.78rem; font-weight:600; animation:tokenAppear .4s ease both;
+        }
+        @keyframes tokenAppear { from { opacity:0; transform:scale(.7) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .gt-input { background:rgba(79,143,247,.12); color:var(--blue); border:1px solid rgba(79,143,247,.2); }
+        .gt-new { background:rgba(0,232,143,.15); color:var(--green); border:1px solid rgba(0,232,143,.3); box-shadow:0 0 12px rgba(0,232,143,.2); }
+        .gen-status {
+            display:flex; align-items:center; gap:.6rem;
+            font-size:.82rem; color:var(--text-dim); padding:.8rem 1rem;
+            background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+        }
+        .gen-status .dot { width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+        .gen-step-indicator {
+            display:flex; gap:.3rem; align-items:center;
+        }
+        .gen-step-dot {
+            width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:.65rem; font-weight:700; border:2px solid var(--border); color:var(--text-muted);
+            transition:all .3s;
+        }
+        .gen-step-dot.active { border-color:var(--blue); color:var(--blue); background:rgba(79,143,247,.1); box-shadow:0 0 12px rgba(79,143,247,.3); }
+        .gen-step-dot.done { border-color:var(--green); color:var(--green); background:rgba(0,232,143,.1); }
+        .gen-step-line { width:20px; height:2px; background:var(--border); }
+
+        /* ─── LOGITS BAR ─── */
+        .logits-viz { margin-top:1rem; }
+        .logit-bar-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.3rem; }
+        .logit-label { width:80px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-dim); }
+        .logit-bar-bg { flex:1; height:22px; background:rgba(255,255,255,.03); border-radius:6px; overflow:hidden; position:relative; }
+        .logit-bar {
+            height:100%; border-radius:6px; transition:width .6s cubic-bezier(.4,0,.2,1);
+            display:flex; align-items:center; padding-left:6px;
+            font-family:'JetBrains Mono',monospace; font-size:.65rem; font-weight:600; color:rgba(255,255,255,.8);
+        }
+        .logit-bar.top { background:linear-gradient(90deg,var(--green),rgba(0,232,143,.6)); }
+        .logit-bar.other { background:rgba(79,143,247,.3); }
+        .logit-val { width:50px; font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--text-muted); }
+
+        /* ─── SHAPE TRACKER ─── */
+        .shape-tracker {
+            display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; justify-content:center;
+            margin:1rem 0; padding:.8rem; background:rgba(0,212,255,.04); border:1px solid rgba(0,212,255,.12);
+            border-radius:12px;
+        }
+        .st-badge { padding:.3rem .7rem; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:.72rem; font-weight:600; }
+        .st-op { background:rgba(255,179,71,.1); color:var(--amber); border:1px solid rgba(255,179,71,.15); }
+        .st-shape { background:rgba(0,212,255,.1); color:var(--cyan); border:1px solid rgba(0,212,255,.15); }
+        .st-arr { color:var(--text-muted); font-size:.9rem; }
+
+        /* ─── QKV PROJECTION VIZ ─── */
+        .qkv-viz { display:flex; flex-direction:column; gap:1.2rem; }
+        .qkv-row { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; justify-content:center; }
+        .qkv-block {
+            padding:.5rem 1rem; border-radius:10px; font-family:'JetBrains Mono',monospace;
+            font-size:.78rem; font-weight:600; text-align:center; transition:all .5s cubic-bezier(.4,0,.2,1);
+            opacity:0; transform:scale(.8);
+        }
+        .qkv-block.show { opacity:1; transform:scale(1); }
+        .qkv-x { background:rgba(255,179,71,.1); color:var(--amber); border:1px solid rgba(255,179,71,.2); }
+        .qkv-w { background:rgba(100,120,180,.1); color:var(--text-dim); border:1px solid rgba(100,120,180,.2); }
+        .qkv-q { background:rgba(79,143,247,.12); color:var(--blue); border:1px solid rgba(79,143,247,.25); box-shadow:0 0 15px rgba(79,143,247,.15); }
+        .qkv-k { background:rgba(155,109,255,.12); color:var(--purple); border:1px solid rgba(155,109,255,.25); box-shadow:0 0 15px rgba(155,109,255,.15); }
+        .qkv-v { background:rgba(0,232,143,.12); color:var(--green); border:1px solid rgba(0,232,143,.25); box-shadow:0 0 15px rgba(0,232,143,.15); }
+        .qkv-op { color:var(--text-muted); font-size:1.1rem; font-weight:700; }
+        .qkv-label { font-size:.72rem; color:var(--text-muted); font-weight:500; text-align:center; margin-bottom:.2rem; }
+
+        /* ─── HEAD SPLIT VIZ ─── */
+        .head-split-viz { display:flex; flex-direction:column; align-items:center; gap:1rem; }
+        .tensor-3d {
+            display:flex; gap:3px; padding:.6rem; border-radius:12px;
+            border:1px solid var(--border); background:var(--bg-panel);
+            transition:all .6s cubic-bezier(.4,0,.2,1);
+        }
+        .tensor-3d.flash { box-shadow:0 0 25px rgba(155,109,255,.3); }
+        .tensor-dim {
+            display:flex; flex-direction:column; gap:2px;
+        }
+        .tensor-cell {
+            width:22px; height:22px; border-radius:4px; font-size:.5rem;
+            display:flex; align-items:center; justify-content:center;
+            font-family:'JetBrains Mono',monospace; font-weight:600;
+            transition:all .4s;
+        }
+        .tensor-cell.h0 { background:rgba(79,143,247,.2); color:var(--blue); border:1px solid rgba(79,143,247,.15); }
+        .tensor-cell.h1 { background:rgba(155,109,255,.2); color:var(--purple); border:1px solid rgba(155,109,255,.15); }
+        .tensor-cell.h2 { background:rgba(0,212,255,.2); color:var(--cyan); border:1px solid rgba(0,212,255,.15); }
+        .head-bracket {
+            border:2px dashed; border-radius:10px; padding:.4rem;
+            display:flex; gap:2px; position:relative; transition:all .5s;
+        }
+        .head-bracket.hb0 { border-color:rgba(79,143,247,.3); }
+        .head-bracket.hb1 { border-color:rgba(155,109,255,.3); }
+        .head-bracket.hb2 { border-color:rgba(0,212,255,.3); }
+        .head-bracket-label {
+            position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+            background:var(--bg-card); padding:0 .4rem;
+            font-size:.6rem; font-weight:600; white-space:nowrap;
+        }
+        .hb0 .head-bracket-label { color:var(--blue); }
+        .hb1 .head-bracket-label { color:var(--purple); }
+        .hb2 .head-bracket-label { color:var(--cyan); }
+        .split-arrow-container {
+            display:flex; flex-direction:column; align-items:center; gap:.1rem;
+            color:var(--text-muted); font-size:.75rem;
+        }
+        .split-arrow-container .op-name {
+            font-family:'JetBrains Mono',monospace; font-size:.7rem; font-weight:600;
+            color:var(--amber); background:rgba(255,179,71,.1); padding:.2rem .5rem;
+            border-radius:6px; border:1px solid rgba(255,179,71,.15);
+        }
+
+        /* ─── DOT PRODUCT VIZ ─── */
+        .dot-product-viz { display:flex; flex-direction:column; align-items:center; gap:1rem; }
+        .dp-matrices { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; justify-content:center; }
+        .dp-matrix {
+            border-radius:10px; border:1px solid var(--border); padding:.5rem;
+            background:var(--bg-panel); transition:all .5s;
+        }
+        .dp-matrix.active { box-shadow:0 0 20px rgba(79,143,247,.2); }
+        .dp-matrix-label {
+            text-align:center; font-family:'JetBrains Mono',monospace;
+            font-size:.7rem; font-weight:600; margin-bottom:.3rem;
+        }
+        .dp-grid { display:grid; gap:2px; }
+        .dp-cell {
+            width:40px; height:28px; border-radius:4px; display:flex;
+            align-items:center; justify-content:center;
+            font-family:'JetBrains Mono',monospace; font-size:.62rem; font-weight:600;
+            transition:all .4s;
+        }
+        .dp-cell.q-cell { background:rgba(79,143,247,.12); color:var(--blue); border:1px solid rgba(79,143,247,.15); }
+        .dp-cell.k-cell { background:rgba(155,109,255,.12); color:var(--purple); border:1px solid rgba(155,109,255,.15); }
+        .dp-cell.s-cell { background:rgba(255,179,71,.1); color:var(--amber); border:1px solid rgba(255,179,71,.15); }
+        .dp-cell.s-cell.computing {
+            animation:computePulse .6s ease; background:rgba(255,179,71,.3);
+            box-shadow:0 0 10px rgba(255,179,71,.3);
+        }
+        .dp-cell.highlight-row { background:rgba(79,143,247,.25); box-shadow:0 0 8px rgba(79,143,247,.2); }
+        .dp-cell.highlight-col { background:rgba(155,109,255,.25); box-shadow:0 0 8px rgba(155,109,255,.2); }
+        @keyframes computePulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+        .dp-op-symbol {
+            font-size:1.4rem; font-weight:700; color:var(--text-muted);
+            display:flex; align-items:center; justify-content:center; width:30px;
+        }
+        .dp-annotation {
+            text-align:center; font-size:.75rem; color:var(--text-dim);
+            background:var(--bg-panel); padding:.5rem 1rem; border-radius:8px;
+            border:1px solid var(--border); max-width:500px;
+            opacity:0; transition:all .4s; font-family:'JetBrains Mono',monospace;
+        }
+        .dp-annotation.show { opacity:1; }
+
+        /* ─── FOOTER ─── */
+        .footer { text-align:center; padding:3rem 2rem; border-top:1px solid var(--border); color:var(--text-muted); font-size:.78rem; }
+
+        /* ─── Responsive ─── */
+        @media(max-width:768px) {
+            .nav-pills { display:none; }
+            .hero { min-height:45vh; }
+            .container { padding:0 1rem 4rem; }
+            .matrix-cell { width:36px; height:36px; font-size:.55rem; }
+            .tf-node { min-width:200px; font-size:.78rem; }
+            .step-cards { grid-template-columns:1fr; }
+            .tf-data-pill { display:none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="scroll-bar" id="scrollBar"></div>
+
+<nav class="nav">
+    <div class="nav-inner">
+        <div class="nav-brand">⚡ GPT Processing · v2</div>
+        <ul class="nav-pills">
+            <li><a href="#sec-embed">Embedding</a></li>
+            <li><a href="#sec-attn">Attention</a></li>
+            <li><a href="#sec-tfblock">Block</a></li>
+            <li><a href="#sec-pipeline">Pipeline</a></li>
+            <li><a href="#sec-gen">Generation</a></li>
+        </ul>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="hero-content">
+        <div class="hero-badge">⚡ Interactive Processing Visualization</div>
+        <h1><span class="grad">GPT 프로세싱</span> 동작 시각화</h1>
+        <p>토큰이 입력되어 다음 토큰이 생성되기까지, 모델 내부에서 일어나는 모든 연산 과정을 단계별로 체험합니다.</p>
+        <div class="btn-group" style="justify-content:center">
+            <a href="#sec-embed" class="btn btn-primary">▶ 시작하기</a>
+            <a href="Chapter_4_Excercise_GPT.html" class="btn btn-secondary">📘 v1 코드 보기</a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION 1: EMBEDDING -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="viz-section" id="sec-embed">
+        <div class="viz-section-header">
+            <div class="viz-num n1">1</div>
+            <h2 class="viz-title">토큰 임베딩 프로세스</h2>
+        </div>
+        <p class="viz-desc">입력 텍스트 <strong>"Hello, I am"</strong>이 토큰 ID로 변환되고, 토큰 임베딩 + 위치 임베딩이 합산되어 모델 입력이 됩니다. 아래 버튼을 눌러 단계별 변환을 확인하세요.</p>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🔤 Token → Embedding Pipeline</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runEmbeddingAnim()">▶ 실행</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetEmbeddingAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="token-flow" id="embFlow">
+                    <!-- Step 1: Text -->
+                    <div class="flow-label">📝 원본 텍스트</div>
+                    <div class="token-row" id="emb-step-text">
+                        <span class="token-chip tc-word">"Hello, I am"</span>
+                    </div>
+                    <div class="flow-arrow"></div>
+
+                    <!-- Step 2: Token IDs (hidden initially) -->
+                    <div id="emb-step-ids" style="opacity:0;transition:all .5s">
+                        <div class="flow-label">🔢 BPE 토큰화 (tiktoken gpt2)</div>
+                        <div class="token-row">
+                            <span class="token-chip tc-id" data-tok="Hello">15496</span>
+                            <span class="token-chip tc-id" data-tok=",">,11</span>
+                            <span class="token-chip tc-id" data-tok=" I">314</span>
+                            <span class="token-chip tc-id" data-tok=" am">716</span>
+                        </div>
+                        <div class="flow-arrow"></div>
+                    </div>
+
+                    <!-- Step 3: Token Embedding -->
+                    <div id="emb-step-tok" style="opacity:0;transition:all .5s">
+                        <div class="flow-label">📦 토큰 임베딩 — nn.Embedding(50257, 768)</div>
+                        <div class="token-row">
+                            <span class="token-chip tc-emb">[0.12, -0.34, ..., 0.56]</span>
+                            <span class="token-chip tc-emb">[0.78, 0.23, ..., -0.11]</span>
+                            <span class="token-chip tc-emb">[-0.45, 0.67, ..., 0.89]</span>
+                            <span class="token-chip tc-emb">[0.33, -0.90, ..., 0.21]</span>
+                        </div>
+                        <div class="shape-tracker">
+                            <span class="st-badge st-op">tok_emb(x)</span>
+                            <span class="st-arr">→</span>
+                            <span class="st-badge st-shape">(1, 4, 768)</span>
+                        </div>
+                        <div class="flow-arrow"></div>
+                    </div>
+
+                    <!-- Step 4: Position Embedding -->
+                    <div id="emb-step-pos" style="opacity:0;transition:all .5s">
+                        <div class="flow-label">📍 위치 임베딩 — nn.Embedding(1024, 768)</div>
+                        <div class="token-row">
+                            <span class="token-chip tc-pos">pos[0]</span>
+                            <span class="token-chip tc-pos">pos[1]</span>
+                            <span class="token-chip tc-pos">pos[2]</span>
+                            <span class="token-chip tc-pos">pos[3]</span>
+                        </div>
+                        <div class="shape-tracker">
+                            <span class="st-badge st-op">pos_emb(arange(4))</span>
+                            <span class="st-arr">→</span>
+                            <span class="st-badge st-shape">(4, 768)</span>
+                        </div>
+                        <div class="flow-arrow"></div>
+                    </div>
+
+                    <!-- Step 5: Sum -->
+                    <div id="emb-step-sum" style="opacity:0;transition:all .5s">
+                        <div class="flow-label">➕ 합산 + Dropout → 모델 입력</div>
+                        <div class="token-row">
+                            <span class="token-chip tc-sum">x₀ = tok[0] + pos[0]</span>
+                            <span class="token-chip tc-sum">x₁ = tok[1] + pos[1]</span>
+                            <span class="token-chip tc-sum">x₂ = tok[2] + pos[2]</span>
+                            <span class="token-chip tc-sum">x₃ = tok[3] + pos[3]</span>
+                        </div>
+                        <div class="shape-tracker">
+                            <span class="st-badge st-op">tok_emb + pos_emb</span>
+                            <span class="st-arr">→</span>
+                            <span class="st-badge st-shape">(1, 4, 768)</span>
+                            <span class="st-arr">→</span>
+                            <span class="st-badge st-op">Dropout(0.1)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION 2: ATTENTION -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="viz-section" id="sec-attn">
+        <div class="viz-section-header">
+            <div class="viz-num n2">2</div>
+            <h2 class="viz-title">셀프 어텐션 연산 과정</h2>
+        </div>
+        <p class="viz-desc">Multi-Head Attention에서 Q, K, V가 어떻게 계산되고, 어텐션 스코어와 가중치가 만들어지는지 시뮬레이션합니다.</p>
+
+        <!-- ═══ STEP 1: QKV Projection ═══ -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🔵 Step 1 — Q / K / V 선형 투영</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runQKVAnim()">▶ 실행</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetQKVAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:1rem">입력 x에 가중치 행렬 W_q, W_k, W_v를 각각 곱해 Query, Key, Value를 생성합니다. 같은 입력에서 3개의 서로 다른 투영이 만들어집니다.</p>
+                <div class="qkv-viz" id="qkvViz">
+                    <!-- Row: x × W_q = Q -->
+                    <div class="qkv-label" id="qkv-label-q" style="opacity:0;transition:all .4s">Query 생성: x × W_query</div>
+                    <div class="qkv-row">
+                        <div class="qkv-block qkv-x" id="qkv-x1">x<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                        <span class="qkv-op" id="qkv-op1" style="opacity:0;transition:all .3s">×</span>
+                        <div class="qkv-block qkv-w" id="qkv-w1" style="opacity:0">W_query<br><span style="font-size:.6rem;opacity:.7">(768, 768)</span></div>
+                        <span class="qkv-op" id="qkv-eq1" style="opacity:0;transition:all .3s">=</span>
+                        <div class="qkv-block qkv-q" id="qkv-q1" style="opacity:0">Q<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                    </div>
+                    <!-- Row: x × W_k = K -->
+                    <div class="qkv-label" id="qkv-label-k" style="opacity:0;transition:all .4s">Key 생성: x × W_key</div>
+                    <div class="qkv-row">
+                        <div class="qkv-block qkv-x" id="qkv-x2">x<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                        <span class="qkv-op" id="qkv-op2" style="opacity:0;transition:all .3s">×</span>
+                        <div class="qkv-block qkv-w" id="qkv-w2" style="opacity:0">W_key<br><span style="font-size:.6rem;opacity:.7">(768, 768)</span></div>
+                        <span class="qkv-op" id="qkv-eq2" style="opacity:0;transition:all .3s">=</span>
+                        <div class="qkv-block qkv-k" id="qkv-k1" style="opacity:0">K<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                    </div>
+                    <!-- Row: x × W_v = V -->
+                    <div class="qkv-label" id="qkv-label-v" style="opacity:0;transition:all .4s">Value 생성: x × W_value</div>
+                    <div class="qkv-row">
+                        <div class="qkv-block qkv-x" id="qkv-x3">x<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                        <span class="qkv-op" id="qkv-op3" style="opacity:0;transition:all .3s">×</span>
+                        <div class="qkv-block qkv-w" id="qkv-w3" style="opacity:0">W_value<br><span style="font-size:.6rem;opacity:.7">(768, 768)</span></div>
+                        <span class="qkv-op" id="qkv-eq3" style="opacity:0;transition:all .3s">=</span>
+                        <div class="qkv-block qkv-v" id="qkv-v1" style="opacity:0">V<br><span style="font-size:.6rem;opacity:.7">(1, 4, 768)</span></div>
+                    </div>
+                    <div id="qkv-summary" class="shape-tracker" style="opacity:0;transition:all .4s">
+                        <span class="st-badge st-op">nn.Linear(768, 768)</span>
+                        <span class="st-arr">×3</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-shape">Q, K, V 각각 (1, 4, 768)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ STEP 2: Head Split ═══ -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🟣 Step 2 — 헤드 분리 (view + transpose)</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runHeadSplitAnim()">▶ 실행</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetHeadSplitAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:1rem">768차원 벡터를 12개 헤드(각 64차원)로 나눕니다. 여기서는 이해를 위해 <strong>3헤드 × 2차원 = 6차원</strong>으로 축소하여 보여줍니다.</p>
+                <div class="head-split-viz" id="headSplitViz">
+                    <!-- Phase 1: Original flat tensor -->
+                    <div class="flow-label" id="hs-label" style="font-weight:600;color:var(--text)">원본: (1, 4, 6) — 각 토큰이 6차원 벡터</div>
+                    <div id="hs-phase1">
+                        <div class="tensor-3d" id="hs-flat">
+                            <!-- 4 tokens × 6 dims, built by JS -->
+                        </div>
+                    </div>
+
+                    <div id="hs-arrow1" class="split-arrow-container" style="opacity:0;transition:all .4s">
+                        <span style="font-size:1rem">↓</span>
+                        <span class="op-name">view(1, 4, 3, 2)</span>
+                        <span style="font-size:.65rem;color:var(--text-muted)">6 = 3 heads × 2 dim</span>
+                    </div>
+
+                    <!-- Phase 2: After view -->
+                    <div id="hs-phase2" style="opacity:0;transition:all .5s">
+                        <div class="flow-label" style="font-weight:600;color:var(--text)">view 후: (1, 4, 3, 2) — 토큰 안에서 헤드로 분리</div>
+                        <div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;" id="hs-split-tokens"></div>
+                    </div>
+
+                    <div id="hs-arrow2" class="split-arrow-container" style="opacity:0;transition:all .4s">
+                        <span style="font-size:1rem">↓</span>
+                        <span class="op-name">transpose(1, 2)</span>
+                        <span style="font-size:.65rem;color:var(--text-muted)">헤드 차원을 토큰 앞으로</span>
+                    </div>
+
+                    <!-- Phase 3: After transpose -->
+                    <div id="hs-phase3" style="opacity:0;transition:all .5s">
+                        <div class="flow-label" style="font-weight:600;color:var(--text)">transpose 후: (1, 3, 4, 2) — 헤드별 독립 처리 가능!</div>
+                        <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;" id="hs-transposed"></div>
+                    </div>
+
+                    <div id="hs-summary" class="shape-tracker" style="opacity:0;transition:all .4s">
+                        <span class="st-badge st-shape">(1, 4, 768)</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-op">view</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-shape">(1, 4, 12, 64)</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-op">transpose</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-shape">(1, 12, 4, 64)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ STEP 3: Scaled Dot-Product ═══ -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🟡 Step 3 — Scaled Dot-Product</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runDotProductAnim()">▶ 실행</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetDotProductAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:1rem">Q × K^T를 계산하여 각 토큰 쌍의 유사도(어텐션 스코어)를 구합니다. √d_k로 나눠 값이 너무 커지는 것을 방지합니다. <strong>4×2 행렬 예시로 시각화합니다.</strong></p>
+                <div class="dot-product-viz" id="dotProdViz">
+                    <div class="dp-matrices">
+                        <!-- Q matrix -->
+                        <div class="dp-matrix" id="dp-q-matrix">
+                            <div class="dp-matrix-label" style="color:var(--blue)">Q (4×2)</div>
+                            <div class="dp-grid" style="grid-template-columns:repeat(2,40px)" id="dpQGrid">
+                                <!-- built by JS -->
+                            </div>
+                        </div>
+                        <div class="dp-op-symbol">×</div>
+                        <!-- K^T matrix -->
+                        <div class="dp-matrix" id="dp-kt-matrix">
+                            <div class="dp-matrix-label" style="color:var(--purple)">K<sup>T</sup> (2×4)</div>
+                            <div class="dp-grid" style="grid-template-columns:repeat(4,40px)" id="dpKTGrid">
+                                <!-- built by JS -->
+                            </div>
+                        </div>
+                        <div class="dp-op-symbol">=</div>
+                        <!-- Score matrix -->
+                        <div class="dp-matrix" id="dp-score-matrix">
+                            <div class="dp-matrix-label" style="color:var(--amber)">Score (4×4)</div>
+                            <div class="dp-grid" style="grid-template-columns:repeat(4,40px)" id="dpScoreGrid">
+                                <!-- built by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dp-annotation" id="dp-annotation">▶ 실행을 눌러 행렬 곱셈을 관찰하세요</div>
+                    <div id="dp-summary" class="shape-tracker" style="opacity:0;transition:all .4s">
+                        <span class="st-badge st-shape">(1, 12, 4, 64)</span>
+                        <span class="st-arr">@</span>
+                        <span class="st-badge st-shape">(1, 12, 64, 4)</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-op">/ √64</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-shape">(1, 12, 4, 4)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4 & 5 summary cards -->
+        <div class="step-cards" style="margin-bottom:1.5rem;">
+            <div class="step-card s4">
+                <div class="num">STEP 4</div>
+                <div class="title">Causal Mask + Softmax</div>
+                <div class="desc">미래 토큰을 -∞로 마스킹 후 softmax로 확률 변환합니다.</div>
+                <div class="shape">weights: (1, 12, 4, 4)</div>
+            </div>
+            <div class="step-card s5">
+                <div class="num">STEP 5</div>
+                <div class="title">Value 가중합 + 헤드 결합</div>
+                <div class="desc">가중치 × V 후, 12개 헤드를 다시 결합(concat)하고 out_proj를 통과합니다.</div>
+                <div class="shape">output: (1, 4, 768)</div>
+            </div>
+        </div>
+
+        <!-- Attention Matrix Heatmap -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🧠 Attention Weight Heatmap (1 Head, 4 Tokens)</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runAttnAnim()">▶ 어텐션 시뮬레이션</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetAttnAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="matrix-container">
+                    <!-- Pre-mask scores -->
+                    <div id="attn-phase-label" class="flow-label" style="font-size:.85rem;font-weight:600;color:var(--text)">
+                        ▶ 버튼을 눌러 어텐션 연산을 시작하세요
+                    </div>
+
+                    <!-- Column headers -->
+                    <div class="matrix-wrapper">
+                        <div style="width:60px"></div>
+                        <div style="display:grid;grid-template-columns:repeat(4,48px);gap:2px">
+                            <div class="matrix-header-cell">Hello</div>
+                            <div class="matrix-header-cell">,</div>
+                            <div class="matrix-header-cell">I</div>
+                            <div class="matrix-header-cell">am</div>
+                        </div>
+                    </div>
+                    <!-- Matrix rows -->
+                    <div id="attnMatrix">
+                        <!-- Rows built by JS -->
+                    </div>
+
+                    <div id="attn-shape-tracker" class="shape-tracker" style="opacity:0;transition:all .4s">
+                        <span class="st-badge st-op" id="attn-op">Q @ K^T / √64</span>
+                        <span class="st-arr">→</span>
+                        <span class="st-badge st-shape" id="attn-shape">(1, 12, 4, 4)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION 3: TRANSFORMER BLOCK -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="viz-section" id="sec-tfblock">
+        <div class="viz-section-header">
+            <div class="viz-num n3">3</div>
+            <h2 class="viz-title">Transformer Block 내부 처리</h2>
+        </div>
+        <p class="viz-desc">하나의 Transformer Block 안에서 데이터가 Residual Connection과 함께 어떻게 흘러가는지 애니메이션으로 확인합니다.</p>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🔄 Block Forward Pass — 단계별 시뮬레이션</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="runBlockAnim()">▶ 실행</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetBlockAnim()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="tf-block-viz" id="blockViz">
+                    <div class="tf-node tf-input" data-step="0">
+                        📥 Input x
+                        <span class="sub">(1, 4, 768)</span>
+                        <div class="tf-data-pill" id="dp0">shortcut = x</div>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-norm" data-step="1">
+                        🔄 LayerNorm₁
+                        <span class="sub">mean=0, var=1 정규화</span>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-attn" data-step="2">
+                        🧠 Multi-Head Attention
+                        <span class="sub">12 heads × 64 dim</span>
+                        <div class="tf-data-pill" id="dp2">Q·K^T/√d → softmax → ×V</div>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-drop" data-step="3">
+                        💧 Dropout (0.1)
+                        <span class="sub">학습 시 랜덤 비활성화</span>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-res" data-step="4">
+                        ➕ Residual Add
+                        <span class="sub">x = attn_out + shortcut</span>
+                        <div class="tf-data-pill" id="dp4">shortcut = x (새로 저장)</div>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-norm" data-step="5">
+                        🔄 LayerNorm₂
+                        <span class="sub">mean=0, var=1 정규화</span>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-ff" data-step="6">
+                        ⚡ FeedForward
+                        <span class="sub">768→3072→GELU→768</span>
+                        <div class="tf-data-pill" id="dp6">4배 확장 후 축소</div>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-drop" data-step="7">
+                        💧 Dropout (0.1)
+                        <span class="sub">학습 시 랜덤 비활성화</span>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-res" data-step="8">
+                        ➕ Residual Add
+                        <span class="sub">x = ff_out + shortcut</span>
+                    </div>
+                    <div class="tf-arrow"></div>
+                    <div class="tf-node tf-out" data-step="9">
+                        📤 Output
+                        <span class="sub">(1, 4, 768) → 다음 블록으로</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION 4: FULL PIPELINE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="viz-section" id="sec-pipeline">
+        <div class="viz-section-header">
+            <div class="viz-num n4">4</div>
+            <h2 class="viz-title">전체 GPT 파이프라인 데이터 흐름</h2>
+        </div>
+        <p class="viz-desc">임베딩부터 logits 출력까지, 각 모듈을 통과할 때 텐서의 shape이 어떻게 변하는지 추적합니다.</p>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">📊 Shape Tracker — Full Forward Pass</span>
+                <button class="btn btn-primary btn-sm" onclick="runPipelineAnim()">▶ 실행</button>
+            </div>
+            <div class="panel-body" id="pipelineBody">
+                <div id="pipelineSteps"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- SECTION 5: GENERATION LOOP -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="viz-section" id="sec-gen">
+        <div class="viz-section-header">
+            <div class="viz-num n5">5</div>
+            <h2 class="viz-title">텍스트 생성 루프 시뮬레이션</h2>
+        </div>
+        <p class="viz-desc">Autoregressive 방식의 생성 루프를 시뮬레이션합니다. 각 스텝에서 모델이 logits를 출력하고, argmax로 다음 토큰을 선택하는 과정을 관찰합니다.</p>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-label">🔄 Generation Loop Simulator</span>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="startGeneration()">▶ 생성 시작</button>
+                    <button class="btn btn-secondary btn-sm" onclick="resetGeneration()">↻ 리셋</button>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="gen-sim">
+                    <!-- Step indicator -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+                        <div class="gen-step-indicator" id="genStepIndicator">
+                            <div class="gen-step-dot" data-gs="0">1</div><div class="gen-step-line"></div>
+                            <div class="gen-step-dot" data-gs="1">2</div><div class="gen-step-line"></div>
+                            <div class="gen-step-dot" data-gs="2">3</div><div class="gen-step-line"></div>
+                            <div class="gen-step-dot" data-gs="3">4</div><div class="gen-step-line"></div>
+                            <div class="gen-step-dot" data-gs="4">5</div>
+                        </div>
+                        <div class="gen-status" id="genStatus">
+                            <span class="dot" style="animation:none;background:var(--text-muted)"></span>
+                            <span>대기 중</span>
+                        </div>
+                    </div>
+
+                    <!-- Context window -->
+                    <div class="gen-context">
+                        <div class="gen-context-label">🪟 Context Window (토큰 시퀀스)</div>
+                        <div class="gen-tokens" id="genTokens">
+                            <span class="gen-token gt-input">Hello</span>
+                            <span class="gen-token gt-input">,</span>
+                            <span class="gen-token gt-input">I</span>
+                            <span class="gen-token gt-input">am</span>
+                        </div>
+                    </div>
+
+                    <!-- Current step detail -->
+                    <div id="genDetail" style="display:none">
+                        <div class="gen-context">
+                            <div class="gen-context-label" id="genDetailLabel">📊 Logits → Top-5 Tokens</div>
+                            <div class="logits-viz" id="logitsViz"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer class="footer">
+    <p>⚡ Chapter 4 · GPT 프로세싱 시각화 v2 — AI Specialist 2026</p>
+    <p style="margin-top:.4rem;font-size:.7rem">Generated from <code>Chapter_4_Excercise_GPT.ipynb</code></p>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════
+// SCROLL PROGRESS
+// ═══════════════════════════════════════════
+window.addEventListener('scroll',()=>{
+    const h=document.documentElement.scrollHeight-window.innerHeight;
+    document.getElementById('scrollBar').style.width=(window.scrollY/h*100)+'%';
+});
+
+// ═══════════════════════════════════════════
+// NAV ACTIVE
+// ═══════════════════════════════════════════
+const secs=document.querySelectorAll('.viz-section');
+const navLinks=document.querySelectorAll('.nav-pills a');
+const navObs=new IntersectionObserver(es=>{
+    es.forEach(e=>{if(e.isIntersecting){
+        navLinks.forEach(l=>l.classList.remove('active'));
+        const a=document.querySelector(`.nav-pills a[href="#${e.target.id}"]`);
+        if(a)a.classList.add('active');
+    }});
+},{rootMargin:'-40% 0px -40% 0px'});
+secs.forEach(s=>navObs.observe(s));
+
+// ═══════════════════════════════════════════
+// 1. EMBEDDING ANIMATION
+// ═══════════════════════════════════════════
+let embTimer=null;
+function runEmbeddingAnim(){
+    resetEmbeddingAnim();
+    const steps=['emb-step-ids','emb-step-tok','emb-step-pos','emb-step-sum'];
+    let i=0;
+    embTimer=setInterval(()=>{
+        if(i>=steps.length){clearInterval(embTimer);return;}
+        const el=document.getElementById(steps[i]);
+        el.style.opacity='1';
+        el.style.transform='translateY(0)';
+        // highlight chips
+        el.querySelectorAll('.token-chip').forEach((c,j)=>{
+            setTimeout(()=>{c.classList.add('highlight');setTimeout(()=>c.classList.remove('highlight'),600)},j*120);
+        });
+        i++;
+    },900);
+}
+function resetEmbeddingAnim(){
+    clearInterval(embTimer);
+    ['emb-step-ids','emb-step-tok','emb-step-pos','emb-step-sum'].forEach(id=>{
+        const el=document.getElementById(id);
+        el.style.opacity='0';
+        el.style.transform='translateY(10px)';
+    });
+}
+
+// ═══════════════════════════════════════════
+// 2. ATTENTION HEATMAP
+// ═══════════════════════════════════════════
+const tokens=['Hello',',','I','am'];
+// Raw scores (pre-mask)
+const rawScores=[[2.1,0.8,0.3,0.1],[1.5,1.9,0.6,0.2],[0.9,0.7,2.3,0.4],[0.6,0.5,1.1,1.8]];
+// After causal mask
+const maskedScores=[[2.1,-Infinity,-Infinity,-Infinity],[1.5,1.9,-Infinity,-Infinity],[0.9,0.7,2.3,-Infinity],[0.6,0.5,1.1,1.8]];
+// After softmax
+const attnWeights=[[1.00,0,0,0],[0.40,0.60,0,0],[0.19,0.16,0.65,0],[0.12,0.11,0.20,0.57]];
+
+function buildMatrix(data,type){
+    const container=document.getElementById('attnMatrix');
+    container.innerHTML='';
+    for(let r=0;r<4;r++){
+        const row=document.createElement('div');
+        row.className='matrix-wrapper';
+        row.innerHTML=`<div class="matrix-row-label">${tokens[r]}</div>`;
+        const grid=document.createElement('div');
+        grid.style.cssText='display:grid;grid-template-columns:repeat(4,48px);gap:2px;';
+        for(let c=0;c<4;c++){
+            const cell=document.createElement('div');
+            cell.className='matrix-cell';
+            const v=data[r][c];
+            if(v===-Infinity){
+                cell.textContent='-∞';
+                cell.style.background='rgba(255,90,138,.08)';
+                cell.style.color='var(--rose)';
+                cell.style.border='1px solid rgba(255,90,138,.15)';
+            } else {
+                let displayVal=type==='weights'?v.toFixed(2):v.toFixed(1);
+                cell.textContent=displayVal;
+                let intensity=type==='weights'?v:(v/2.5);
+                intensity=Math.max(0,Math.min(1,intensity));
+                if(type==='scores'){
+                    cell.style.background=`rgba(79,143,247,${intensity*.3+.05})`;
+                    cell.style.color=intensity>.5?'#fff':'var(--text-dim)';
+                    cell.style.border=`1px solid rgba(79,143,247,${intensity*.3})`;
+                } else {
+                    const g=Math.round(intensity*200);
+                    cell.style.background=`rgba(0,${150+g*.4},${100+g*.6},${intensity*.4+.05})`;
+                    cell.style.color=intensity>.3?'#fff':'var(--text-dim)';
+                    cell.style.border=`1px solid rgba(0,232,143,${intensity*.3})`;
+                    if(intensity>.5) cell.style.boxShadow=`0 0 ${intensity*12}px rgba(0,232,143,${intensity*.3})`;
+                }
+            }
+            // Animate entrance
+            cell.style.opacity='0';
+            cell.style.transform='scale(0.6)';
+            setTimeout(()=>{cell.style.opacity='1';cell.style.transform='scale(1)';},r*80+c*50);
+            grid.appendChild(cell);
+        }
+        row.appendChild(grid);
+        container.appendChild(row);
+    }
+}
+
+let attnPhase=0;
+let attnTimer=null;
+function runAttnAnim(){
+    resetAttnAnim();
+    const phases=[
+        {data:rawScores,type:'scores',label:'① Q × K^T / √64  — Raw Attention Scores',op:'Q @ K^T / √64',shape:'(1, 12, 4, 4)'},
+        {data:maskedScores,type:'scores',label:'② Causal Mask 적용 — 미래 토큰 = -∞',op:'masked_fill_(-∞)',shape:'(1, 12, 4, 4)'},
+        {data:attnWeights,type:'weights',label:'③ Softmax → Attention Weights (확률)',op:'softmax(scores)',shape:'(1, 12, 4, 4)'},
+    ];
+    attnPhase=0;
+    document.getElementById('attn-shape-tracker').style.opacity='1';
+    function nextPhase(){
+        if(attnPhase>=phases.length) return;
+        const p=phases[attnPhase];
+        document.getElementById('attn-phase-label').textContent=p.label;
+        document.getElementById('attn-op').textContent=p.op;
+        document.getElementById('attn-shape').textContent=p.shape;
+        buildMatrix(p.data,p.type);
+        attnPhase++;
+        if(attnPhase<phases.length) attnTimer=setTimeout(nextPhase,2000);
+    }
+    nextPhase();
+}
+function resetAttnAnim(){
+    clearTimeout(attnTimer);
+    attnPhase=0;
+    document.getElementById('attnMatrix').innerHTML='';
+    document.getElementById('attn-phase-label').textContent='▶ 버튼을 눌러 어텐션 연산을 시작하세요';
+    document.getElementById('attn-shape-tracker').style.opacity='0';
+}
+// Init empty matrix
+buildMatrix([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],'scores');
+
+// ═══════════════════════════════════════════
+// 2-STEP1. QKV PROJECTION ANIMATION
+// ═══════════════════════════════════════════
+let qkvTimer=null;
+function runQKVAnim(){
+    resetQKVAnim();
+    const rows=[
+        {label:'qkv-label-q',x:'qkv-x1',op:'qkv-op1',w:'qkv-w1',eq:'qkv-eq1',r:'qkv-q1'},
+        {label:'qkv-label-k',x:'qkv-x2',op:'qkv-op2',w:'qkv-w2',eq:'qkv-eq2',r:'qkv-k1'},
+        {label:'qkv-label-v',x:'qkv-x3',op:'qkv-op3',w:'qkv-w3',eq:'qkv-eq3',r:'qkv-v1'},
+    ];
+    let i=0;
+    // Show all x blocks first
+    rows.forEach(r=>document.getElementById(r.x).classList.add('show'));
+    qkvTimer=setInterval(()=>{
+        if(i>=rows.length){clearInterval(qkvTimer);document.getElementById('qkv-summary').style.opacity='1';return;}
+        const r=rows[i];
+        document.getElementById(r.label).style.opacity='1';
+        setTimeout(()=>{document.getElementById(r.op).style.opacity='1';},150);
+        setTimeout(()=>{const el=document.getElementById(r.w);el.style.opacity='1';el.classList.add('show');},300);
+        setTimeout(()=>{document.getElementById(r.eq).style.opacity='1';},500);
+        setTimeout(()=>{const el=document.getElementById(r.r);el.style.opacity='1';el.classList.add('show');},650);
+        i++;
+    },900);
+}
+function resetQKVAnim(){
+    clearInterval(qkvTimer);
+    ['qkv-label-q','qkv-label-k','qkv-label-v','qkv-op1','qkv-op2','qkv-op3',
+     'qkv-eq1','qkv-eq2','qkv-eq3','qkv-w1','qkv-w2','qkv-w3',
+     'qkv-q1','qkv-k1','qkv-v1','qkv-summary'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el){el.style.opacity='0';el.classList&&el.classList.remove('show');}
+    });
+    ['qkv-x1','qkv-x2','qkv-x3'].forEach(id=>document.getElementById(id).classList.remove('show'));
+}
+
+// ═══════════════════════════════════════════
+// 2-STEP2. HEAD SPLIT ANIMATION
+// ═══════════════════════════════════════════
+const hsTokenLabels=['Hello',',','I','am'];
+const hsColors=['h0','h1','h2']; // 3 heads
+const hsData=[
+    [[.12,-.34],[.56,.78],[-.23,.45]],
+    [[.67,-.89],[.11,.33],[-.55,.22]],
+    [[-.45,.67],[.89,-.12],[.34,.56]],
+    [[.33,-.90],[.21,.44],[-.67,.88]]
+]; // 4 tokens × 3 heads × 2 dims
+
+// Build flat tensor on load
+function buildFlatTensor(){
+    const container=document.getElementById('hs-flat');
+    container.innerHTML='';
+    for(let t=0;t<4;t++){
+        const col=document.createElement('div');
+        col.className='tensor-dim';
+        col.innerHTML=`<div style="text-align:center;font-size:.6rem;color:var(--text-muted);margin-bottom:2px">${hsTokenLabels[t]}</div>`;
+        for(let h=0;h<3;h++){
+            for(let d=0;d<2;d++){
+                const cell=document.createElement('div');
+                cell.className=`tensor-cell ${hsColors[h]}`;
+                cell.textContent=hsData[t][h][d].toFixed(1);
+                col.appendChild(cell);
+            }
+        }
+        container.appendChild(col);
+    }
+}
+buildFlatTensor();
+
+let hsTimer=null;
+function runHeadSplitAnim(){
+    resetHeadSplitAnim();
+    // Phase 1: Flash the flat tensor
+    document.getElementById('hs-flat').classList.add('flash');
+    
+    // Phase 2: Show view result
+    setTimeout(()=>{
+        document.getElementById('hs-arrow1').style.opacity='1';
+        setTimeout(()=>{
+            document.getElementById('hs-phase2').style.opacity='1';
+            buildViewResult();
+        },400);
+    },600);
+    
+    // Phase 3: Show transpose result
+    setTimeout(()=>{
+        document.getElementById('hs-arrow2').style.opacity='1';
+        setTimeout(()=>{
+            document.getElementById('hs-phase3').style.opacity='1';
+            buildTransposeResult();
+            setTimeout(()=>document.getElementById('hs-summary').style.opacity='1',400);
+        },400);
+    },2200);
+}
+
+function buildViewResult(){
+    const container=document.getElementById('hs-split-tokens');
+    container.innerHTML='';
+    for(let t=0;t<4;t++){
+        const tokenWrap=document.createElement('div');
+        tokenWrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:.3rem';
+        tokenWrap.innerHTML=`<div style="font-size:.65rem;color:var(--text-muted);font-weight:600">${hsTokenLabels[t]}</div>`;
+        const headRow=document.createElement('div');
+        headRow.style.cssText='display:flex;gap:4px;';
+        for(let h=0;h<3;h++){
+            const bracket=document.createElement('div');
+            bracket.className=`head-bracket hb${h}`;
+            bracket.innerHTML=`<div class="head-bracket-label">H${h+1}</div>`;
+            for(let d=0;d<2;d++){
+                const cell=document.createElement('div');
+                cell.className=`tensor-cell ${hsColors[h]}`;
+                cell.textContent=hsData[t][h][d].toFixed(1);
+                cell.style.opacity='0';
+                cell.style.transform='scale(.5)';
+                setTimeout(()=>{cell.style.opacity='1';cell.style.transform='scale(1)';},t*100+h*60+d*30);
+                bracket.appendChild(cell);
+            }
+            headRow.appendChild(bracket);
+        }
+        tokenWrap.appendChild(headRow);
+        container.appendChild(tokenWrap);
+    }
+}
+
+function buildTransposeResult(){
+    const container=document.getElementById('hs-transposed');
+    container.innerHTML='';
+    for(let h=0;h<3;h++){
+        const headWrap=document.createElement('div');
+        headWrap.className=`head-bracket hb${h}`;
+        headWrap.style.cssText='flex-direction:column;display:flex;gap:3px;padding:.6rem;';
+        headWrap.innerHTML=`<div class="head-bracket-label">Head ${h+1}</div>`;
+        for(let t=0;t<4;t++){
+            const row=document.createElement('div');
+            row.style.cssText='display:flex;gap:2px;align-items:center;';
+            const label=document.createElement('div');
+            label.style.cssText='font-size:.55rem;color:var(--text-muted);width:28px;text-align:right;margin-right:3px;';
+            label.textContent=hsTokenLabels[t];
+            row.appendChild(label);
+            for(let d=0;d<2;d++){
+                const cell=document.createElement('div');
+                cell.className=`tensor-cell ${hsColors[h]}`;
+                cell.textContent=hsData[t][h][d].toFixed(1);
+                cell.style.opacity='0';
+                cell.style.transform='translateX(-10px)';
+                setTimeout(()=>{cell.style.opacity='1';cell.style.transform='translateX(0)';},h*200+t*80+d*30);
+                row.appendChild(cell);
+            }
+            headWrap.appendChild(row);
+        }
+        container.appendChild(headWrap);
+    }
+}
+
+function resetHeadSplitAnim(){
+    clearInterval(hsTimer);
+    document.getElementById('hs-flat').classList.remove('flash');
+    ['hs-arrow1','hs-arrow2','hs-phase2','hs-phase3','hs-summary'].forEach(id=>{
+        document.getElementById(id).style.opacity='0';
+    });
+}
+
+// ═══════════════════════════════════════════
+// 2-STEP3. SCALED DOT-PRODUCT ANIMATION
+// ═══════════════════════════════════════════
+const dpQ=[[1.2,.5],[-.3,.8],[.7,-.4],[.1,.9]]; // Q: 4×2
+const dpKT=[[1.2,-.3,.7,.1],[.5,.8,-.4,.9]];    // K^T: 2×4
+// Pre-compute scores: Q @ K^T
+const dpScores=[];
+for(let i=0;i<4;i++){dpScores[i]=[];for(let j=0;j<4;j++){dpScores[i][j]=dpQ[i][0]*dpKT[0][j]+dpQ[i][1]*dpKT[1][j];}}
+// Scaled scores (÷ √2)
+const sqrtD=Math.sqrt(2);
+const dpScaledScores=dpScores.map(row=>row.map(v=>v/sqrtD));
+
+function buildDPMatrices(){
+    // Q grid
+    const qGrid=document.getElementById('dpQGrid');
+    qGrid.innerHTML='';
+    for(let r=0;r<4;r++) for(let c=0;c<2;c++){
+        const cell=document.createElement('div');
+        cell.className='dp-cell q-cell';
+        cell.id=`dpq-${r}-${c}`;
+        cell.textContent=dpQ[r][c].toFixed(1);
+        qGrid.appendChild(cell);
+    }
+    // KT grid
+    const ktGrid=document.getElementById('dpKTGrid');
+    ktGrid.innerHTML='';
+    for(let r=0;r<2;r++) for(let c=0;c<4;c++){
+        const cell=document.createElement('div');
+        cell.className='dp-cell k-cell';
+        cell.id=`dpkt-${r}-${c}`;
+        cell.textContent=dpKT[r][c].toFixed(1);
+        ktGrid.appendChild(cell);
+    }
+    // Score grid (empty)
+    const sGrid=document.getElementById('dpScoreGrid');
+    sGrid.innerHTML='';
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+        const cell=document.createElement('div');
+        cell.className='dp-cell s-cell';
+        cell.id=`dps-${r}-${c}`;
+        cell.textContent='?';
+        cell.style.opacity='.3';
+        sGrid.appendChild(cell);
+    }
+}
+buildDPMatrices();
+
+let dpTimer=null;
+let dpTimeouts=[];
+function runDotProductAnim(){
+    resetDotProductAnim();
+    const ann=document.getElementById('dp-annotation');
+    ann.classList.add('show');
+    let delay=0;
+    
+    for(let r=0;r<4;r++){
+        for(let c=0;c<4;c++){
+            ((r,c,d)=>{
+                const t=setTimeout(()=>{
+                    // Highlight Q row
+                    for(let k=0;k<2;k++) document.getElementById(`dpq-${r}-${k}`).classList.add('highlight-row');
+                    // Highlight KT col
+                    for(let k=0;k<2;k++) document.getElementById(`dpkt-${k}-${c}`).classList.add('highlight-col');
+                    
+                    // Show computation
+                    ann.textContent=`Score[${r}][${c}] = (${dpQ[r][0].toFixed(1)}×${dpKT[0][c].toFixed(1)}) + (${dpQ[r][1].toFixed(1)}×${dpKT[1][c].toFixed(1)}) = ${dpScores[r][c].toFixed(2)}`;
+                    
+                    // Fill score cell
+                    const sCell=document.getElementById(`dps-${r}-${c}`);
+                    sCell.textContent=dpScores[r][c].toFixed(2);
+                    sCell.style.opacity='1';
+                    sCell.classList.add('computing');
+                    
+                    // Clear highlights after brief delay
+                    setTimeout(()=>{
+                        for(let k=0;k<2;k++) document.getElementById(`dpq-${r}-${k}`).classList.remove('highlight-row');
+                        for(let k=0;k<2;k++) document.getElementById(`dpkt-${k}-${c}`).classList.remove('highlight-col');
+                        sCell.classList.remove('computing');
+                    },280);
+                },d);
+                dpTimeouts.push(t);
+            })(r,c,delay);
+            delay+=320;
+        }
+    }
+    // After all done, show scaling
+    const t2=setTimeout(()=>{
+        ann.textContent=`÷ √d_k = ÷ √64 = ÷ 8.0  →  모든 스코어를 √head_dim으로 나눠 안정화`;
+        for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+            const sCell=document.getElementById(`dps-${r}-${c}`);
+            sCell.textContent=dpScaledScores[r][c].toFixed(2);
+            sCell.classList.add('computing');
+            setTimeout(()=>sCell.classList.remove('computing'),500);
+        }
+        document.getElementById('dp-summary').style.opacity='1';
+    },delay+300);
+    dpTimeouts.push(t2);
+}
+
+function resetDotProductAnim(){
+    dpTimeouts.forEach(t=>clearTimeout(t));
+    dpTimeouts=[];
+    buildDPMatrices();
+    document.getElementById('dp-annotation').textContent='▶ 실행을 눌러 행렬 곱셈을 관찰하세요';
+    document.getElementById('dp-annotation').classList.add('show');
+    document.getElementById('dp-summary').style.opacity='0';
+}
+
+// ═══════════════════════════════════════════
+// 3. TRANSFORMER BLOCK ANIMATION
+// ═══════════════════════════════════════════
+let blockTimer=null;
+function runBlockAnim(){
+    resetBlockAnim();
+    const nodes=document.querySelectorAll('#blockViz .tf-node');
+    const pills=['dp0','dp2','dp4','dp6'];
+    let step=0;
+    blockTimer=setInterval(()=>{
+        if(step>=nodes.length){clearInterval(blockTimer);return;}
+        // Deactivate previous
+        if(step>0){
+            nodes[step-1].classList.remove('active');
+            nodes[step-1].classList.add('done');
+        }
+        nodes[step].classList.add('active');
+        // Show data pills
+        const pillId=`dp${step}`;
+        const pill=document.getElementById(pillId);
+        if(pill) pill.classList.add('visible');
+        step++;
+    },700);
+}
+function resetBlockAnim(){
+    clearInterval(blockTimer);
+    document.querySelectorAll('#blockViz .tf-node').forEach(n=>{n.classList.remove('active','done');});
+    document.querySelectorAll('.tf-data-pill').forEach(p=>p.classList.remove('visible'));
+}
+
+// ═══════════════════════════════════════════
+// 4. FULL PIPELINE
+// ═══════════════════════════════════════════
+const pipelineData=[
+    {icon:'📝',op:'Input Token IDs',shape:'(1, 4)',color:'var(--amber)',detail:'tokenizer.encode("Hello, I am")'},
+    {icon:'🔤',op:'tok_emb(x)',shape:'(1, 4, 768)',color:'var(--blue)',detail:'nn.Embedding(50257, 768)'},
+    {icon:'📍',op:'pos_emb(arange)',shape:'(4, 768)',color:'var(--cyan)',detail:'nn.Embedding(1024, 768)'},
+    {icon:'➕',op:'tok + pos',shape:'(1, 4, 768)',color:'var(--green)',detail:'broadcasting 합산'},
+    {icon:'💧',op:'Dropout(0.1)',shape:'(1, 4, 768)',color:'var(--text-dim)',detail:'학습 시 10% 비활성화'},
+    {icon:'🔄',op:'TransformerBlock ×12',shape:'(1, 4, 768)',color:'var(--purple)',detail:'각 블록 shape 보존'},
+    {icon:'🔄',op:'final_norm',shape:'(1, 4, 768)',color:'var(--cyan)',detail:'LayerNorm(768)'},
+    {icon:'📊',op:'out_head',shape:'(1, 4, 50257)',color:'var(--rose)',detail:'nn.Linear(768, 50257)'},
+    {icon:'🎯',op:'logits[:, -1, :]',shape:'(1, 50257)',color:'var(--amber)',detail:'마지막 토큰의 logits만'},
+    {icon:'✅',op:'argmax(logits)',shape:'(1, 1)',color:'var(--green)',detail:'최고 확률 토큰 ID'},
+];
+let pipeTimer=null;
+function runPipelineAnim(){
+    const container=document.getElementById('pipelineSteps');
+    container.innerHTML='';
+    let i=0;
+    pipeTimer=setInterval(()=>{
+        if(i>=pipelineData.length){clearInterval(pipeTimer);return;}
+        const d=pipelineData[i];
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;opacity:0;transform:translateX(-20px);transition:all .4s ease;';
+        row.innerHTML=`
+            <div style="font-size:1.2rem;width:32px;text-align:center">${d.icon}</div>
+            <div style="flex:1;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:${d.color}">${d.op}</span>
+                <span style="color:var(--text-muted);font-size:.75rem">→</span>
+                <span class="st-badge st-shape" style="font-size:.72rem">${d.shape}</span>
+                <span style="color:var(--text-muted);font-size:.72rem;font-style:italic">${d.detail}</span>
+            </div>
+        `;
+        container.appendChild(row);
+        // draw arrow
+        if(i<pipelineData.length-1){
+            const arrow=document.createElement('div');
+            arrow.style.cssText='width:2px;height:16px;background:linear-gradient(var(--border),transparent);margin:0 0 .5rem 15px;opacity:0;transition:opacity .3s;';
+            container.appendChild(arrow);
+            setTimeout(()=>arrow.style.opacity='1',50);
+        }
+        setTimeout(()=>{row.style.opacity='1';row.style.transform='translateX(0)';},50);
+        i++;
+    },450);
+}
+
+// ═══════════════════════════════════════════
+// 5. GENERATION LOOP SIMULATOR
+// ═══════════════════════════════════════════
+const genTokensData=[
+    {word:'Feature',logits:[{w:'Feature',v:12.3},{w:'not',v:8.1},{w:'the',v:7.9},{w:'very',v:7.4},{w:'a',v:6.8}]},
+    {word:'iman',logits:[{w:'iman',v:10.5},{w:'rich',v:8.7},{w:'less',v:7.2},{w:'ful',v:6.9},{w:'ist',v:6.1}]},
+    {word:'Byes',logits:[{w:'Byes',v:11.8},{w:'Like',v:7.4},{w:'More',v:7.1},{w:'Good',v:6.5},{w:'True',v:5.9}]},
+    {word:'wick',logits:[{w:'wick',v:13.2},{w:'ward',v:8.0},{w:'land',v:7.3},{w:'ford',v:6.7},{w:'berg',v:5.8}]},
+    {word:'attribute',logits:[{w:'attribute',v:9.8},{w:'context',v:8.5},{w:'element',v:7.9},{w:'setting',v:7.1},{w:'method',v:6.6}]},
+];
+let genStep=0;
+let genTimer=null;
+
+function startGeneration(){
+    resetGeneration();
+    genStep=0;
+    document.getElementById('genDetail').style.display='block';
+    const status=document.getElementById('genStatus');
+    status.innerHTML='<span class="dot"></span><span>생성 중...</span>';
+
+    function generateNext(){
+        if(genStep>=genTokensData.length){
+            status.innerHTML='<span class="dot" style="animation:none;background:var(--green)"></span><span>생성 완료! (5 tokens)</span>';
+            return;
+        }
+        const d=genTokensData[genStep];
+
+        // Highlight step dots
+        document.querySelectorAll('.gen-step-dot').forEach((dot,i)=>{
+            dot.classList.remove('active','done');
+            if(i<genStep) dot.classList.add('done');
+            if(i===genStep) dot.classList.add('active');
+        });
+
+        // Show logits
+        const logitsContainer=document.getElementById('logitsViz');
+        document.getElementById('genDetailLabel').textContent=`📊 Step ${genStep+1}: Logits → Top-5 후보 토큰`;
+        logitsContainer.innerHTML='';
+        const maxVal=Math.max(...d.logits.map(l=>l.v));
+        d.logits.forEach((l,i)=>{
+            const row=document.createElement('div');
+            row.className='logit-bar-row';
+            row.style.opacity='0';
+            row.style.transform='translateX(-10px)';
+            row.style.transition='all .3s ease';
+            const pct=(l.v/maxVal*100);
+            row.innerHTML=`
+                <div class="logit-label">${l.w}</div>
+                <div class="logit-bar-bg"><div class="logit-bar ${i===0?'top':'other'}" style="width:0%">${l.v.toFixed(1)}</div></div>
+                <div class="logit-val">${i===0?'✅ argmax':''}</div>
+            `;
+            logitsContainer.appendChild(row);
+            setTimeout(()=>{
+                row.style.opacity='1';
+                row.style.transform='translateX(0)';
+                row.querySelector('.logit-bar').style.width=pct+'%';
+            },i*120+100);
+        });
+
+        // After showing logits, add token
+        setTimeout(()=>{
+            const tokensEl=document.getElementById('genTokens');
+            const tok=document.createElement('span');
+            tok.className='gen-token gt-new';
+            tok.textContent=d.word;
+            tokensEl.appendChild(tok);
+            // Flash effect
+            setTimeout(()=>tok.style.boxShadow='none',800);
+
+            genStep++;
+            genTimer=setTimeout(generateNext,1800);
+        },800);
+    }
+    generateNext();
+}
+
+function resetGeneration(){
+    clearTimeout(genTimer);
+    genStep=0;
+    const tokensEl=document.getElementById('genTokens');
+    tokensEl.innerHTML=`
+        <span class="gen-token gt-input">Hello</span>
+        <span class="gen-token gt-input">,</span>
+        <span class="gen-token gt-input">I</span>
+        <span class="gen-token gt-input">am</span>
+    `;
+    document.getElementById('genDetail').style.display='none';
+    document.querySelectorAll('.gen-step-dot').forEach(d=>d.classList.remove('active','done'));
+    const status=document.getElementById('genStatus');
+    status.innerHTML='<span class="dot" style="animation:none;background:var(--text-muted)"></span><span>대기 중</span>';
+}
+
+// ═══════════════════════════════════════════
+// INITIAL PIPELINE BUILD
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+    // Pre-build pipeline (static version)
+    const container=document.getElementById('pipelineSteps');
+    container.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:.85rem">▶ 실행 버튼을 눌러 파이프라인을 시작하세요</div>';
+});
+</script>
+
+</body>
+</html>

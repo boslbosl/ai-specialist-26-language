@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<!--
+created: 2026-08-03
+aliases: [GPT 구조 시각화, Chapter4 GPT, 트랜스포머 동작 시각화]
+tags: [ai-generated, 지식/LLM, 지식/Transformer, 실습노트]
+author: Jungmin
+source_type: AI
+ai_model: Claude Opus 5
+accuracy: ⭐️⭐️⭐️⭐️
+status: #raw
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chapter 4 · GPT 모델 구조와 생성 루프 — 동작 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E6EBF1;
+  --card:#FAFCFD;
+  --card-2:#F1F5F9;
+  --ink:#0F2237;
+  --ink-2:#3D5570;
+  --ink-3:#7D93A8;
+  --rule:#C6D3DF;
+  --rule-2:#DDE6EE;
+  --q:#C2255C;
+  --k:#0E7C86;
+  --v:#6842C2;
+  --amber:#C46A10;
+  --amber-soft:#F0B27A;
+  --mask:#A3B3C2;
+  --ok:#1F7A4D;
+  --shadow:0 1px 0 rgba(15,34,55,.06), 0 10px 30px -18px rgba(15,34,55,.45);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:'IBM Plex Sans KR',system-ui,sans-serif;
+  font-weight:400;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(rgba(15,34,55,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,34,55,.055) 1px, transparent 1px),
+    linear-gradient(rgba(15,34,55,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,34,55,.028) 1px, transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px 100px}
+h1,h2,h3,.disp{font-family:'Archivo','IBM Plex Sans KR',sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.25}
+code,.mono,pre{font-family:'JetBrains Mono',monospace}
+
+/* ---------- hero ---------- */
+header.hero{padding:72px 0 40px;border-bottom:2px solid var(--ink);margin-bottom:44px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);margin:0 0 16px}
+h1{font-size:clamp(30px,5.4vw,58px);margin:0 0 14px}
+h1 .thin{font-weight:500;color:var(--ink-2)}
+.lede{max-width:64ch;font-size:17px;color:var(--ink-2);margin:0 0 26px}
+.cfg{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:5px 10px;color:var(--ink-2)}
+.chip b{color:var(--ink);font-weight:700}
+
+/* ---------- section ---------- */
+section{margin:0 0 72px;scroll-margin-top:20px}
+.sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--rule);padding-bottom:10px;margin-bottom:22px;flex-wrap:wrap}
+.sec-num{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--q);font-weight:700;letter-spacing:.1em}
+h2{font-size:clamp(21px,3vw,29px);margin:0}
+.sec-sub{font-size:13px;color:var(--ink-3);margin-left:auto;font-family:'JetBrains Mono',monospace}
+p.note{max-width:76ch;color:var(--ink-2);font-size:15px}
+
+.card{background:var(--card);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow);padding:22px}
+.card + .card{margin-top:18px}
+
+/* ---------- controls ---------- */
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+button.btn{
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;
+  background:var(--ink);color:#fff;border:1px solid var(--ink);border-radius:2px;
+  padding:8px 14px;cursor:pointer;transition:background .15s,transform .05s;
+}
+button.btn:hover{background:#1c3b5c}
+button.btn:active{transform:translateY(1px)}
+button.btn.ghost{background:transparent;color:var(--ink);}
+button.btn.ghost:hover{background:var(--card-2)}
+button.btn:disabled{opacity:.35;cursor:default}
+button.btn:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--q);outline-offset:2px}
+.dots{display:flex;gap:5px;margin-left:6px;flex-wrap:wrap}
+.dot{width:22px;height:5px;background:var(--rule);border:0;padding:0;cursor:pointer;border-radius:2px;transition:background .2s}
+.dot.on{background:var(--q)}
+.dot.done{background:var(--ink-3)}
+label.slider{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+input[type=range]{accent-color:var(--q);width:110px}
+
+/* ---------- shape rail (signature) ---------- */
+.rail{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--ink);color:#EAF1F7;border-radius:3px;padding:12px 16px;margin-top:16px;
+}
+.rail .lbl{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;color:#7F9BB5;text-transform:uppercase}
+.dims{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:14px}
+.brk{color:#5F7C97;font-size:18px}
+.dim{background:#1C3A57;border:1px solid #2E5578;border-radius:2px;padding:3px 9px;transition:background .35s,border-color .35s,transform .35s}
+.dim .dn{color:#7F9BB5;font-size:10.5px;display:block;line-height:1.2}
+.dim .dv{color:#F2F7FB;font-weight:700;line-height:1.2}
+.dim.hot{background:var(--amber);border-color:#E39C4E;transform:translateY(-2px)}
+.dim.hot .dn{color:#4B2A05}
+.dim.hot .dv{color:#301B02}
+.rail .why{margin-left:auto;font-size:12.5px;color:#A9C1D6;font-family:'JetBrains Mono',monospace}
+
+/* ---------- code line ---------- */
+.codeline{
+  font-family:'JetBrains Mono',monospace;font-size:13px;background:#0F2237;color:#D6E4F0;
+  padding:10px 14px;border-radius:3px;overflow-x:auto;white-space:pre;margin:0 0 12px
+}
+.codeline .cm{color:#7F9BB5}
+.codeline .fn{color:#F0B27A}
+.codeline .kw{color:#E58FAE}
+
+/* ---------- step text ---------- */
+.steptxt{min-height:78px}
+.steptxt h3{font-size:18px;margin:0 0 6px}
+.steptxt p{margin:0;color:var(--ink-2);font-size:14.5px;max-width:80ch}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 7px;border-radius:2px;margin-right:6px;vertical-align:2px}
+.tag.q{background:rgba(194,37,92,.12);color:var(--q)}
+.tag.k{background:rgba(14,124,134,.13);color:var(--k)}
+.tag.v{background:rgba(104,66,194,.12);color:var(--v)}
+
+/* ---------- svg stage ---------- */
+.stage{width:100%;background:var(--card-2);border:1px solid var(--rule-2);border-radius:3px;overflow:hidden}
+svg{display:block;width:100%;height:auto}
+.cell{transition:transform .62s cubic-bezier(.66,.02,.28,1),opacity .4s}
+.cell rect{transition:fill .45s,stroke .45s}
+.cell text{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.anno{transition:opacity .35s}
+.anno text{font-family:'JetBrains Mono',monospace;fill:var(--ink-2)}
+.anno .ttl{font-size:12px;font-weight:700;letter-spacing:.08em}
+.anno .sm{font-size:10.5px;fill:var(--ink-3)}
+.sweep{fill:var(--amber);opacity:.16}
+
+/* ---------- tables ---------- */
+.tbl-wrap{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:var(--card)}
+th,td{border:1px solid var(--rule-2);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--card-2);font-weight:700;font-size:12.5px;letter-spacing:.02em}
+td.mono,th.mono{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+tr.tot td{background:#EEF4EF;font-weight:700}
+td .pill{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--card-2);border:1px solid var(--rule-2);padding:1px 6px;border-radius:2px}
+
+/* ---------- token strip ---------- */
+.strip{display:flex;flex-wrap:wrap;gap:4px;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.tok{
+  padding:5px 9px;border:1px solid var(--rule);background:var(--card);border-radius:2px;
+  transition:background .3s,color .3s,border-color .3s,transform .3s;position:relative;white-space:pre
+}
+.tok.inp{background:rgba(14,124,134,.14);border-color:var(--k);color:#08484E}
+.tok.tgt{box-shadow:inset 0 -4px 0 var(--amber-soft)}
+.tok.both{background:rgba(14,124,134,.14);border-color:var(--k);box-shadow:inset 0 -4px 0 var(--amber-soft)}
+.tok.new{background:rgba(194,37,92,.13);border-color:var(--q);color:#7A1338;transform:translateY(-2px)}
+.tok.ctx{background:var(--card-2)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:6px}
+
+/* ---------- emb rows ---------- */
+.embgrid{display:grid;grid-template-columns:auto auto auto auto auto auto;gap:6px 10px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;justify-content:start}
+.vec{display:flex;gap:3px}
+.vc{width:44px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:2px;color:#0F2237;opacity:0;transform:translateY(6px);transition:opacity .4s,transform .4s}
+.vc.show{opacity:1;transform:none}
+.op{font-size:16px;color:var(--ink-3)}
+.rowlbl{color:var(--ink-2);white-space:nowrap}
+
+/* ---------- flow diagram ---------- */
+.flowbox{fill:var(--card);stroke:var(--rule);stroke-width:1.4}
+.flowbox.act{fill:#FFF3E4;stroke:var(--amber);stroke-width:2}
+.flowtxt{font-family:'IBM Plex Sans KR',sans-serif;font-size:12.5px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.flowsm{font-family:'JetBrains Mono',monospace;font-size:10px;fill:var(--ink-3);text-anchor:middle}
+.wire{fill:none;stroke:var(--ink-3);stroke-width:1.4}
+.wire.res{stroke:var(--q);stroke-dasharray:5 4}
+.wire.act{stroke:var(--amber);stroke-width:2.4;stroke-dasharray:none}
+
+/* ---------- bars ---------- */
+.bars{display:flex;flex-direction:column;gap:5px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.bar{display:grid;grid-template-columns:130px 1fr 56px;gap:8px;align-items:center}
+.bar .fill{height:16px;background:var(--k);opacity:.55;transition:width .5s}
+.bar.top .fill{background:var(--q);opacity:1}
+.bar.top span{font-weight:700;color:var(--q)}
+
+/* ---------- misc ---------- */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.callout{border-left:3px solid var(--q);background:var(--card);padding:14px 18px;margin:16px 0;font-size:14.5px;color:var(--ink-2)}
+.callout b{color:var(--ink)}
+ul.tight{margin:8px 0 0;padding-left:20px;font-size:14.5px;color:var(--ink-2)}
+ul.tight li{margin-bottom:5px}
+nav.toc{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 40px}
+nav.toc a{
+  font-family:'JetBrains Mono',monospace;font-size:12px;text-decoration:none;color:var(--ink-2);
+  border:1px solid var(--rule);background:var(--card);padding:6px 11px;border-radius:2px;transition:.15s
+}
+nav.toc a:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+footer{border-top:1px solid var(--rule);padding-top:20px;font-size:12.5px;color:var(--ink-3);font-family:'JetBrains Mono',monospace}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}.rail .why{width:100%;margin-left:0}}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.001s !important;animation-duration:.001s !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Chapter 4 · Exercise Notebook</p>
+  <h1>GPT는 텐서를<br><span class="thin">어떻게 흘려보내는가</span></h1>
+  <p class="lede">
+    <code>Chapter_4_Excercise_GPT.ipynb</code>의 코드를 그대로 따라가면서, <b>shape이 변하는 순간</b>마다 셀이 실제로 쪼개지고 자리를 바꾸는 모습을 봅니다.
+    특히 <code>view</code> → <code>transpose</code> → <code>@</code> → <code>mask</code> → <code>softmax</code>로 이어지는 어텐션 처리부를 10단계로 나눠 재생할 수 있습니다.
+  </p>
+  <div class="cfg">
+    <span class="chip">vocab_size <b>50257</b></span>
+    <span class="chip">context_length <b>1024</b></span>
+    <span class="chip">emb_dim <b>768</b></span>
+    <span class="chip">n_heads <b>12</b></span>
+    <span class="chip">n_layers <b>12</b></span>
+    <span class="chip">drop_rate <b>0.1</b></span>
+    <span class="chip">qkv_bias <b>False</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#map">00 전체 지도</a>
+  <a href="#data">01 데이터 준비</a>
+  <a href="#emb">02 임베딩 합산</a>
+  <a href="#mha">03 어텐션 처리부 ★</a>
+  <a href="#block">04 블록 잔차 흐름</a>
+  <a href="#gen">05 생성 루프</a>
+  <a href="#tables">06 shape · 파라미터 표</a>
+  <a href="#traps">07 자주 틀리는 곳</a>
+</nav>
+
+<!-- ============ 00 MAP ============ -->
+<section id="map">
+  <div class="sec-head">
+    <span class="sec-num">00</span><h2>전체 지도</h2>
+    <span class="sec-sub">GPTModel.forward()</span>
+  </div>
+  <p class="note">
+    노트북의 <code>GPTModel</code>은 네 덩어리로 읽으면 됩니다. 임베딩에서 <code>emb_dim</code>이 생기고,
+    트랜스포머 블록 12개를 지나는 동안 <b>shape은 한 번도 변하지 않으며</b>, 마지막 <code>out_head</code>에서 어휘 크기로 펼쳐집니다.
+  </p>
+  <div class="card">
+    <div class="stage">
+      <svg viewBox="0 0 980 250" role="img" aria-label="GPT 전체 파이프라인 다이어그램">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#7D93A8"/>
+          </marker>
+        </defs>
+        <g id="mapg"></g>
+      </svg>
+    </div>
+    <div class="rail">
+      <span class="lbl">전 구간 규칙</span>
+      <div class="dims">
+        <span class="brk">[</span>
+        <span class="dim"><span class="dn">batch</span><span class="dv">1</span></span>
+        <span class="dim"><span class="dn">seq_len</span><span class="dv">4</span></span>
+        <span class="dim"><span class="dn">emb_dim</span><span class="dv">768</span></span>
+        <span class="brk">]</span>
+      </div>
+      <span class="why">블록 12개를 지나도 이 shape은 그대로. 바뀌는 건 값뿐입니다.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 01 DATA ============ -->
+<section id="data">
+  <div class="sec-head">
+    <span class="sec-num">01</span><h2>데이터 준비 — 슬라이딩 윈도우</h2>
+    <span class="sec-sub">GPTDatasetV1.__init__</span>
+  </div>
+  <p class="note">
+    <code>range(0, len(token_ids) - max_length, stride)</code>로 창을 밀면서, 입력은 <code>[i : i+max_length]</code>,
+    타깃은 <b>한 칸 뒤인</b> <code>[i+1 : i+max_length+1]</code>을 잘라냅니다. 슬라이더로 <code>stride</code>를 바꿔 보면
+    <b>샘플 개수와 중복 정도</b>가 어떻게 달라지는지 바로 보입니다.
+  </p>
+  <div class="card">
+    <div class="codeline"><span class="cm"># stride만큼 이동하며 max_length 길이의 chunk 생성</span>
+input_chunk  = token_ids[i : i + max_length]
+target_chunk = token_ids[i + 1 : i + max_length + 1]   <span class="cm"># 한 칸 밀린 정답</span></div>
+    <div class="ctrls">
+      <button class="btn" id="dw-play">▶ 창 밀기</button>
+      <button class="btn ghost" id="dw-step">한 칸씩</button>
+      <button class="btn ghost" id="dw-reset">처음으로</button>
+      <label class="slider">max_length <input type="range" id="dw-len" min="2" max="6" value="4"><b id="dw-len-v">4</b></label>
+      <label class="slider">stride <input type="range" id="dw-str" min="1" max="6" value="4"><b id="dw-str-v">4</b></label>
+    </div>
+    <div class="strip" id="dw-strip"></div>
+    <div class="legend">
+      <span><i style="background:rgba(14,124,134,.35);border:1px solid var(--k)"></i>input_chunk</span>
+      <span><i style="background:var(--amber-soft)"></i>target_chunk (한 칸 뒤)</span>
+    </div>
+    <div class="rail">
+      <span class="lbl">현재 상태</span>
+      <div class="dims" id="dw-rail"></div>
+      <span class="why" id="dw-why"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 EMB ============ -->
+<section id="emb">
+  <div class="sec-head">
+    <span class="sec-num">02</span><h2>임베딩 합산 — 토큰 + 위치</h2>
+    <span class="sec-sub">tok_emb + pos_emb</span>
+  </div>
+  <p class="note">
+    <code>tok_emb</code>은 <b>"무슨 단어인가"</b>, <code>pos_emb</code>은 <b>"몇 번째 자리인가"</b>를 담습니다.
+    둘은 같은 <code>emb_dim</code> 벡터라서 그냥 더합니다. 여기서 <code>pos_emb</code>의 인덱스는 토큰 ID가 아니라
+    <code>torch.arange(seq_len)</code> — 즉 0,1,2,3 이라는 점이 핵심입니다. (아래는 768차원 중 앞 6칸만 표시)
+  </p>
+  <div class="card">
+    <div class="codeline">tok_embeds = self.tok_emb(in_idx)                                <span class="cm"># (1,4) → (1,4,768)</span>
+pos_embeds = self.pos_emb(<span class="fn">torch.arange</span>(seq_len))               <span class="cm"># (4)   → (4,768)</span>
+x = tok_embeds + pos_embeds                                      <span class="cm"># 브로드캐스팅으로 합산</span></div>
+    <div class="ctrls">
+      <button class="btn" id="emb-play">▶ 합산 재생</button>
+      <button class="btn ghost" id="emb-reset">초기화</button>
+    </div>
+    <div class="embgrid" id="embgrid"></div>
+    <div class="callout">
+      <b>왜 더하기인가?</b> 이어붙이면(concat) 차원이 1536으로 늘어 파라미터가 두 배가 됩니다.
+      더하기는 차원을 유지하면서 두 정보를 같은 공간에 겹쳐 놓는 방식이고, 모델은 학습을 통해
+      이 겹친 신호를 분리해 씁니다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 MHA ============ -->
+<section id="mha">
+  <div class="sec-head">
+    <span class="sec-num">03</span><h2>어텐션 처리부 — 10단계 모핑</h2>
+    <span class="sec-sub">MultiHeadAttention.forward</span>
+  </div>
+  <p class="note">
+    노트북 주석의 예시 그대로 <code>b=1, num_tokens=6, d_out=4, num_heads=2, head_dim=2</code>로 축소했습니다.
+    아래 숫자는 <b>실제로 계산된 값</b>입니다 — 마스크된 자리는 <code>−∞</code>가 되고, softmax 후 각 행의 합은 정확히 1이 됩니다.
+    셀이 사라지지 않고 <b>자리만 이동</b>하는 구간이 <code>view</code>와 <code>transpose</code>입니다.
+  </p>
+  <div class="card">
+    <div class="ctrls">
+      <button class="btn" id="mha-prev">◀ 이전</button>
+      <button class="btn" id="mha-play">▶ 재생</button>
+      <button class="btn" id="mha-next">다음 ▶</button>
+      <div class="dots" id="mha-dots"></div>
+    </div>
+    <div class="codeline" id="mha-code"></div>
+    <div class="stage">
+      <svg viewBox="0 0 980 470" id="mha-svg" role="img" aria-label="멀티헤드 어텐션 단계별 텐서 흐름">
+        <g id="mha-anno" class="anno"></g>
+        <g id="mha-cells"></g>
+      </svg>
+    </div>
+    <div class="rail">
+      <span class="lbl">현재 텐서</span>
+      <div class="dims" id="mha-rail"></div>
+      <span class="why" id="mha-why"></span>
+    </div>
+    <div class="steptxt" style="margin-top:16px">
+      <h3 id="mha-title"></h3>
+      <p id="mha-desc"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 8px;font-size:16px">view · reshape · transpose · permute — 무엇이 다른가</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:110px">연산</th><th>하는 일</th><th>메모리</th><th class="mono">이 코드에서</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">view</td><td>같은 데이터를 다른 차원 구조로 <b>해석</b>만 바꿈</td><td>복사 없음. 단, <b>contiguous</b> 텐서에만 가능</td><td class="mono">d_out → (num_heads, head_dim) 분할</td></tr>
+          <tr><td class="mono">reshape</td><td>view와 같지만, 불가능하면 조용히 복사</td><td>상황에 따라 복사 발생</td><td class="mono">안전하지만 성능 예측이 어려움</td></tr>
+          <tr><td class="mono">transpose(a,b)</td><td>두 축의 <b>순서만</b> 맞바꿈</td><td>복사 없음. stride만 변경 → <b>비연속</b></td><td class="mono">(1,2): 토큰↔헤드 / (2,3): K를 Kᵀ로</td></tr>
+          <tr><td class="mono">permute</td><td>모든 축 순서를 한 번에 지정</td><td>transpose와 동일</td><td class="mono">이 코드에서는 미사용</td></tr>
+          <tr><td class="mono">contiguous</td><td>메모리를 실제로 재배치</td><td><b>복사 발생</b></td><td class="mono">transpose 뒤 view를 쓰기 위해 필수</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <b>순서가 중요한 이유.</b> 8단계에서 <code>transpose(1,2)</code>를 하면 텐서는 비연속 상태가 됩니다.
+      이 상태로 바로 <code>view</code>를 호출하면 <code>RuntimeError</code>가 납니다. 그래서 코드가
+      <code>.contiguous().view(b, num_tokens, self.d_out)</code>로 되어 있는 것입니다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 BLOCK ============ -->
+<section id="block">
+  <div class="sec-head">
+    <span class="sec-num">04</span><h2>블록 잔차 흐름 — Pre-LayerNorm</h2>
+    <span class="sec-sub">TransformerBlock.forward</span>
+  </div>
+  <p class="note">
+    한 블록 안에는 <b>지름길(shortcut)이 두 개</b> 있습니다. 어텐션 앞뒤로 하나, 피드포워드 앞뒤로 하나.
+    아래 재생 버튼을 누르면 신호가 본선과 지름길로 갈라졌다가 <code>+</code> 지점에서 다시 만나는 과정이 보입니다.
+  </p>
+  <div class="card">
+    <div class="ctrls">
+      <button class="btn" id="blk-play">▶ 신호 흘려보내기</button>
+      <span class="chip" id="blk-stage" style="margin-left:4px">대기 중</span>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 980 300" id="blk-svg" role="img" aria-label="트랜스포머 블록 잔차 연결 흐름">
+        <g id="blkg"></g>
+        <circle id="blk-pkt" r="7" fill="#C2255C" opacity="0"/>
+      </svg>
+    </div>
+    <div class="grid2" style="margin-top:18px">
+      <div>
+        <h3 style="font-size:15px;margin:0 0 8px">Pre-LN vs Post-LN</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>항목</th><th>Pre-LN (이 코드)</th><th>Post-LN (원 논문)</th></tr></thead>
+            <tbody>
+              <tr><td>순서</td><td class="mono">x + F(LN(x))</td><td class="mono">LN(x + F(x))</td></tr>
+              <tr><td>지름길</td><td>정규화를 <b>거치지 않음</b></td><td>정규화를 거침</td></tr>
+              <tr><td>깊은 학습</td><td>안정적, warm-up 거의 불필요</td><td>warm-up 없으면 발산하기 쉬움</td></tr>
+              <tr><td>최종 성능</td><td>약간 손해라는 보고도 있음</td><td>잘 학습되면 유리</td></tr>
+              <tr><td>채택</td><td>GPT-2/3, LLaMA 등 현대 LLM</td><td>초기 Transformer, BERT</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:15px;margin:0 0 8px">두 하위층의 역할 분담</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>구분</th><th>Attention</th><th>FeedForward</th></tr></thead>
+            <tbody>
+              <tr><td>방향</td><td><b>토큰 간</b> 정보 섞기</td><td><b>토큰 내부</b> 정보 가공</td></tr>
+              <tr><td>연산</td><td class="mono">토큰끼리 가중합</td><td class="mono">각 토큰에 동일 MLP 적용</td></tr>
+              <tr><td>차원</td><td class="mono">768 → 768</td><td class="mono">768 → 3072 → 768</td></tr>
+              <tr><td>파라미터</td><td class="mono">2,360,064</td><td class="mono">4,722,432 (약 2배)</td></tr>
+              <tr><td>비유</td><td>회의에서 서로 정보 교환</td><td>각자 자리로 돌아가 정리</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 GEN ============ -->
+<section id="gen">
+  <div class="sec-head">
+    <span class="sec-num">05</span><h2>생성 루프 — 붙이고, 다시 넣고</h2>
+    <span class="sec-sub">generate_text_simple</span>
+  </div>
+  <p class="note">
+    생성은 결국 <b>네 줄의 반복</b>입니다. 자르고 → 통과시키고 → 마지막 자리만 꺼내고 → 붙인다.
+    아래에서 각 반복이 어떤 shape을 지나는지 단계별로 확인하세요.
+  </p>
+  <div class="card">
+    <div class="codeline"><span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(max_new_tokens):
+    idx_cond = idx[:, -context_size:]          <span class="cm"># ① 문맥 자르기</span>
+    <span class="kw">with</span> torch.no_grad(): logits = model(idx_cond)  <span class="cm"># ② 전체 통과  (1,T,50257)</span>
+    logits = logits[:, -1, :]                  <span class="cm"># ③ 마지막 자리만 (1,50257)</span>
+    idx_next = torch.<span class="fn">argmax</span>(logits, dim=-1, keepdim=<span class="kw">True</span>)  <span class="cm"># ④ greedy</span>
+    idx = torch.<span class="fn">concat</span>((idx, idx_next), dim=1)  <span class="cm"># ⑤ 이어붙이기</span></div>
+    <div class="ctrls">
+      <button class="btn" id="gen-play">▶ 10토큰 생성</button>
+      <button class="btn ghost" id="gen-reset">초기화</button>
+      <span class="chip" id="gen-iter">iteration 0 / 10</span>
+    </div>
+    <div class="strip" id="gen-strip" style="margin-bottom:16px"></div>
+    <div class="grid2">
+      <div>
+        <div class="chip" style="margin-bottom:8px">③ 마지막 자리 logits 상위 5개 <span class="mono">(50257개 중 · 예시 값)</span></div>
+        <div class="bars" id="gen-bars"></div>
+      </div>
+      <div>
+        <div class="chip" style="margin-bottom:8px">현재 단계</div>
+        <div class="stage" style="padding:14px 16px;background:var(--card)">
+          <div id="gen-steps" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2.1"></div>
+        </div>
+      </div>
+    </div>
+    <div class="rail">
+      <span class="lbl">현재 텐서</span>
+      <div class="dims" id="gen-rail"></div>
+      <span class="why" id="gen-why">재생을 눌러 시작하세요.</span>
+    </div>
+    <div class="callout">
+      <b>출력이 뜻 없는 이유.</b> 노트북은 <code>model.eval()</code>만 하고 <b>학습은 하지 않습니다</b>.
+      가중치가 무작위 초기화 상태라 argmax가 뽑는 토큰도 무작위에 가깝습니다.
+      여기서 확인할 것은 문장의 품질이 아니라 <b>루프가 shape을 올바르게 유지하는가</b>입니다.
+      <br><br>
+      <b>이 루프의 비효율.</b> 매 반복마다 전체 시퀀스를 처음부터 다시 계산합니다.
+      이미 계산한 K, V를 버리는 셈이라 <code>O(n²)</code>가 <code>O(n³)</code>처럼 누적됩니다 — 이것이 <b>KV Cache</b>가 필요한 지점입니다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 TABLES ============ -->
+<section id="tables">
+  <div class="sec-head">
+    <span class="sec-num">06</span><h2>shape 표 · 파라미터 계산</h2>
+    <span class="sec-sub">GPT_CONFIG_124M</span>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 6px;font-size:16px">입력에서 logits까지, 단계별 shape</h3>
+    <p class="note" style="margin-top:0">입력 <code>"Hello, I am"</code> → 4토큰 기준</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:52px">#</th><th>연산</th><th class="mono">출력 shape</th><th>메모</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">0</td><td>tokenizer.encode</td><td class="mono">(4,)</td><td>파이썬 리스트</td></tr>
+          <tr><td class="mono">1</td><td>unsqueeze(0)</td><td class="mono">(1, 4)</td><td>배치 차원 추가</td></tr>
+          <tr><td class="mono">2</td><td>tok_emb</td><td class="mono">(1, 4, 768)</td><td>ID → 벡터 조회</td></tr>
+          <tr><td class="mono">3</td><td>+ pos_emb</td><td class="mono">(1, 4, 768)</td><td>(4,768)이 브로드캐스팅</td></tr>
+          <tr><td class="mono">4</td><td>W_query / W_key / W_value</td><td class="mono">(1, 4, 768)</td><td>각각 하나씩, 총 3개</td></tr>
+          <tr><td class="mono">5</td><td>view</td><td class="mono">(1, 4, 12, 64)</td><td>768 = 12 × 64</td></tr>
+          <tr><td class="mono">6</td><td>transpose(1, 2)</td><td class="mono">(1, 12, 4, 64)</td><td>헤드를 앞으로</td></tr>
+          <tr><td class="mono">7</td><td>queries @ keys.transpose(2,3)</td><td class="mono">(1, 12, 4, 4)</td><td>토큰 × 토큰 점수</td></tr>
+          <tr><td class="mono">8</td><td>masked_fill_ → softmax</td><td class="mono">(1, 12, 4, 4)</td><td>shape 불변, 값만 확률로</td></tr>
+          <tr><td class="mono">9</td><td>attn_weights @ values</td><td class="mono">(1, 12, 4, 64)</td><td>컨텍스트 벡터</td></tr>
+          <tr><td class="mono">10</td><td>transpose(1,2).contiguous().view</td><td class="mono">(1, 4, 768)</td><td>헤드 결합</td></tr>
+          <tr><td class="mono">11</td><td>out_proj</td><td class="mono">(1, 4, 768)</td><td>헤드 간 정보 혼합</td></tr>
+          <tr><td class="mono">12</td><td>× 12 blocks + final_norm</td><td class="mono">(1, 4, 768)</td><td>끝까지 shape 동일</td></tr>
+          <tr class="tot"><td class="mono">13</td><td>out_head</td><td class="mono">(1, 4, 50257)</td><td>각 자리마다 어휘 전체 점수</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 6px;font-size:16px">파라미터는 어디에 몰려 있나</h3>
+    <p class="note" style="margin-top:0">124M이라고 부르지만, 이 코드 그대로 세면 163M이 나옵니다. 그 차이를 확인하세요.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>구성 요소</th><th class="mono">계산식</th><th class="mono">파라미터 수</th><th class="mono">비중</th></tr></thead>
+        <tbody>
+          <tr><td>tok_emb</td><td class="mono">50257 × 768</td><td class="mono">38,597,376</td><td class="mono">23.7%</td></tr>
+          <tr><td>pos_emb</td><td class="mono">1024 × 768</td><td class="mono">786,432</td><td class="mono">0.5%</td></tr>
+          <tr><td>W_q/W_k/W_v (블록당)</td><td class="mono">3 × 768 × 768</td><td class="mono">1,769,472</td><td class="mono">—</td></tr>
+          <tr><td>out_proj (블록당)</td><td class="mono">768 × 768 + 768</td><td class="mono">590,592</td><td class="mono">—</td></tr>
+          <tr><td>FeedForward (블록당)</td><td class="mono">768×3072 + 3072×768 + bias</td><td class="mono">4,722,432</td><td class="mono">—</td></tr>
+          <tr><td>LayerNorm ×2 (블록당)</td><td class="mono">2 × 2 × 768</td><td class="mono">3,072</td><td class="mono">—</td></tr>
+          <tr><td><b>블록 1개 합계</b></td><td class="mono">—</td><td class="mono">7,085,568</td><td class="mono">4.3%</td></tr>
+          <tr><td><b>블록 12개</b></td><td class="mono">7,085,568 × 12</td><td class="mono">85,026,816</td><td class="mono">52.2%</td></tr>
+          <tr><td>final_norm</td><td class="mono">2 × 768</td><td class="mono">1,536</td><td class="mono">0.0%</td></tr>
+          <tr><td>out_head</td><td class="mono">768 × 50257</td><td class="mono">38,597,376</td><td class="mono">23.7%</td></tr>
+          <tr class="tot"><td>이 코드 그대로</td><td class="mono">—</td><td class="mono">163,009,536</td><td class="mono">100%</td></tr>
+          <tr class="tot"><td>weight tying 적용 시</td><td class="mono">163,009,536 − 38,597,376</td><td class="mono">124,412,160</td><td class="mono">"124M"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <b>124M의 정체.</b> 원본 GPT-2는 <code>tok_emb</code>과 <code>out_head</code>가 <b>같은 행렬을 공유</b>합니다(weight tying).
+      "단어 → 벡터"와 "벡터 → 단어"는 같은 사전을 양방향으로 쓰는 것이라는 발상입니다.
+      노트북 코드는 이 공유를 하지 않으므로 38.6M이 더 잡히고, 그래서 163M이 나옵니다.
+      fp32 기준 메모리로는 약 <b>622MB</b>, tying 시 <b>475MB</b>입니다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 TRAPS ============ -->
+<section id="traps">
+  <div class="sec-head">
+    <span class="sec-num">07</span><h2>자주 틀리는 곳</h2>
+    <span class="sec-sub">TODO 체크리스트</span>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:150px">위치</th><th>흔한 실수</th><th class="mono">올바른 코드</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">LayerNorm</td><td><code>unbiased=True</code>(기본값)로 분산 계산 → GPT-2 원본과 미세하게 어긋남</td><td class="mono">var(dim=-1, keepdim=True, unbiased=False)</td></tr>
+          <tr><td class="mono">LayerNorm</td><td>정규화 축을 <code>dim=0</code>(배치)으로 잡음 → 그건 BatchNorm</td><td class="mono">dim=-1 (임베딩 축)</td></tr>
+          <tr><td class="mono">FeedForward</td><td>확장 배수를 빠뜨림</td><td class="mono">Linear(emb, 4*emb) → GELU → Linear(4*emb, emb)</td></tr>
+          <tr><td class="mono">TransformerBlock</td><td><code>shortcut</code>을 정규화 <b>후</b>의 x로 저장 → 잔차 의미 소실</td><td class="mono">shortcut = x  (norm 호출 전에)</td></tr>
+          <tr><td class="mono">GPTModel</td><td><code>pos_emb</code>에 토큰 ID를 넣음</td><td class="mono">pos_emb(torch.arange(seq_len))</td></tr>
+          <tr><td class="mono">GPTModel</td><td><code>out_head</code>에 bias 추가</td><td class="mono">nn.Linear(emb_dim, vocab_size, bias=False)</td></tr>
+          <tr><td class="mono">MHA</td><td>스케일을 <code>d_out</code>으로 나눔</td><td class="mono">/ keys.shape[-1] ** 0.5  (= head_dim)</td></tr>
+          <tr><td class="mono">MHA</td><td><code>transpose</code> 직후 <code>view</code> 호출 → RuntimeError</td><td class="mono">.contiguous().view(...)</td></tr>
+          <tr><td class="mono">generate</td><td><code>logits[:, 0, :]</code>로 첫 자리를 꺼냄</td><td class="mono">logits[:, -1, :]  (마지막 자리)</td></tr>
+          <tr><td class="mono">generate</td><td><code>keepdim=False</code> → concat에서 차원 불일치</td><td class="mono">argmax(..., dim=-1, keepdim=True)</td></tr>
+          <tr><td class="mono">generate</td><td><code>torch.no_grad()</code> 누락 → 메모리 급증</td><td class="mono">with torch.no_grad():</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 style="font-size:15px;margin:22px 0 6px">다음으로 이어지는 질문</h3>
+    <ul class="tight">
+      <li>greedy argmax 대신 <b>temperature / top-k / top-p</b>를 넣으면 어디가 바뀌는가 (④번 줄 하나만 바뀝니다)</li>
+      <li>매 반복마다 K, V를 다시 계산하는 대신 캐싱하면 — <b>KV Cache</b>와 그 메모리 비용</li>
+      <li><code>mask</code>를 <code>register_buffer</code>로 등록한 이유: 학습 대상은 아니지만 <code>.to(device)</code>는 따라가야 하니까</li>
+      <li>드롭아웃이 <code>eval()</code>에서 꺼지는데도 코드에 남아 있는 이유 — 학습 단계와 동일한 모듈을 공유하기 위해</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  Chapter_4_Excercise_GPT.ipynb · 수치는 축소 예시(b=1, T=6, d_out=4, heads=2)에서 실제 계산된 값 · 파라미터 수는 GPT_CONFIG_124M 기준
+</footer>
+
+</div>
+
+<script>
+"use strict";
+const $ = (s)=>document.querySelector(s);
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (n, attrs)=>{ const e=document.createElementNS(SVGNS,n); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; };
+
+/* ============================================================
+   00. PIPELINE MAP
+   ============================================================ */
+(function(){
+  const g = $("#mapg");
+  const boxes = [
+    {x:20,  t:"토큰 ID",       s:"(1, 4)",        c:"#F1F5F9"},
+    {x:172, t:"tok + pos",     s:"(1, 4, 768)",   c:"#FFF3E4"},
+    {x:324, t:"Block × 12",    s:"(1, 4, 768)",   c:"#FDECF1", big:true},
+    {x:660, t:"final_norm",    s:"(1, 4, 768)",   c:"#FFF3E4"},
+    {x:812, t:"out_head",      s:"(1, 4, 50257)", c:"#E8F3F4"}
+  ];
+  boxes.forEach((b,i)=>{
+    const w = b.big?300:132, y=90, h=76;
+    const r = el("rect",{x:b.x,y:y,width:w,height:h,rx:3,fill:b.c,stroke:"#C6D3DF","stroke-width":1.4});
+    g.appendChild(r);
+    const t1 = el("text",{x:b.x+w/2,y:y+30,class:"flowtxt"}); t1.textContent=b.t; g.appendChild(t1);
+    const t2 = el("text",{x:b.x+w/2,y:y+52,class:"flowsm"}); t2.textContent=b.s; g.appendChild(t2);
+    if(i<boxes.length-1){
+      const nx = boxes[i+1].x;
+      const p = el("path",{d:"M"+(b.x+w)+" "+(y+h/2)+" L"+(nx-6)+" "+(y+h/2),class:"wire","marker-end":"url(#ar)"});
+      g.appendChild(p);
+    }
+  });
+  // inner detail of the block
+  const inner=[["LN → Attention → +",340],["LN → FeedForward → +",480]];
+  inner.forEach(([txt,x])=>{
+    const r=el("rect",{x:x,y:186,width:132,height:40,rx:3,fill:"#FAFCFD",stroke:"#DDE6EE"});
+    g.appendChild(r);
+    const t=el("text",{x:x+66,y:207,class:"flowsm"}); t.setAttribute("font-size","10.5"); t.textContent=txt; g.appendChild(t);
+  });
+  const br=el("path",{d:"M474 166 L406 166 L406 184 M474 166 L546 166 L546 184 M474 166 L474 156",class:"wire"});
+  g.appendChild(br);
+  const lb=el("text",{x:474,y:150,class:"flowsm"}); lb.textContent="블록 내부"; g.appendChild(lb);
+  const cap=el("text",{x:474,y:250,class:"flowsm"}); cap.setAttribute("font-size","10.5");
+  cap.textContent="12개 블록이 순서대로 쌓여 있고, 각 블록은 shape을 바꾸지 않습니다"; g.appendChild(cap);
+})();
+
+/* ============================================================
+   shape rail helper
+   ============================================================ */
+function renderRail(node, dims, hotIdx){
+  node.innerHTML="";
+  const open=document.createElement("span"); open.className="brk"; open.textContent="["; node.appendChild(open);
+  dims.forEach((d,i)=>{
+    const s=document.createElement("span");
+    s.className="dim"+((hotIdx||[]).indexOf(i)>=0?" hot":"");
+    s.innerHTML='<span class="dn">'+d[0]+'</span><span class="dv">'+d[1]+'</span>';
+    node.appendChild(s);
+  });
+  const close=document.createElement("span"); close.className="brk"; close.textContent="]"; node.appendChild(close);
+}
+
+/* ============================================================
+   01. SLIDING WINDOW
+   ============================================================ */
+(function(){
+  const TOKENS = ["In"," the"," beginning"," God"," created"," the"," heavens"," and"," the"," earth",",",
+                  " and"," the"," earth"," was"," without"," form",","," and"," void","."," Dark"];
+  const strip=$("#dw-strip"), rail=$("#dw-rail"), why=$("#dw-why");
+  let maxLen=4, stride=4, i=0, timer=null;
+
+  function positions(){ const out=[]; for(let s=0;s+maxLen<TOKENS.length;s+=stride) out.push(s); return out; }
+  function draw(){
+    const pos = positions();
+    if(pos.length===0){ i=0; } else if(i>=pos.length){ i=0; }
+    const start = pos.length? pos[i] : 0;
+    strip.innerHTML="";
+    TOKENS.forEach((t,idx)=>{
+      const d=document.createElement("span"); d.className="tok";
+      const inInput  = idx>=start && idx<start+maxLen;
+      const inTarget = idx>=start+1 && idx<start+maxLen+1;
+      if(inInput&&inTarget) d.className="tok both";
+      else if(inInput) d.className="tok inp";
+      else if(inTarget) d.className="tok tgt";
+      d.textContent=t.replace(/ /g,"·");
+      strip.appendChild(d);
+    });
+    renderRail(rail, [["samples",pos.length],["max_length",maxLen],["stride",stride]], stride<maxLen?[2]:[]);
+    const overlap = Math.max(0, maxLen-stride);
+    why.textContent = "샘플 "+(pos.length?i+1:0)+"/"+pos.length+"  ·  i="+start+"  ·  이웃 샘플과 겹치는 토큰 "+overlap+"개"
+      + (stride>maxLen? "  ·  stride>max_length → 건너뛰는 토큰 발생" : (overlap===0?"  ·  겹침 없음":""));
+  }
+  function step(){ const pos=positions(); i=(i+1)%Math.max(1,pos.length); draw(); }
+  $("#dw-step").onclick=step;
+  $("#dw-reset").onclick=()=>{ i=0; stop(); draw(); };
+  function stop(){ if(timer){clearInterval(timer);timer=null;$("#dw-play").textContent="▶ 창 밀기";} }
+  $("#dw-play").onclick=()=>{
+    if(timer){ stop(); return; }
+    $("#dw-play").textContent="❚❚ 일시정지";
+    timer=setInterval(step,1100);
+  };
+  $("#dw-len").oninput=e=>{ maxLen=+e.target.value; $("#dw-len-v").textContent=maxLen; i=0; draw(); };
+  $("#dw-str").oninput=e=>{ stride=+e.target.value; $("#dw-str-v").textContent=stride; i=0; draw(); };
+  draw();
+})();
+
+/* ============================================================
+   02. EMBEDDING SUM
+   ============================================================ */
+(function(){
+  const grid=$("#embgrid");
+  const toks=[["Hello",15496],[",",11],[" I",314],[" am",716]];
+  function rnd(seed){ let s=seed; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+  const r=rnd(7);
+  const D=6;
+  const tokv=toks.map(()=>Array.from({length:D},()=>+( (r()*2-1) ).toFixed(2)));
+  const posv=toks.map(()=>Array.from({length:D},()=>+( (r()*1.2-0.6) ).toFixed(2)));
+  function color(v,hue){ const a=Math.min(1,Math.abs(v)/1.2)*0.62+0.08; return "hsla("+hue+",55%,"+(v>=0?52:66)+"%,"+a+")"; }
+  function vec(vals,hue,cls){
+    const d=document.createElement("div"); d.className="vec";
+    vals.forEach((v,i)=>{ const c=document.createElement("div"); c.className="vc "+cls; c.dataset.k=i;
+      c.style.background=color(v,hue); c.textContent=v.toFixed(1); d.appendChild(c); });
+    const e=document.createElement("div"); e.className="vc "+cls; e.style.background="transparent"; e.textContent="…"; d.appendChild(e);
+    return d;
+  }
+  function build(){
+    grid.innerHTML="";
+    const hdr=["토큰","tok_emb (ID로 조회)","","pos_emb (0,1,2,3으로 조회)","","x = 합"];
+    hdr.forEach(h=>{const s=document.createElement("div");s.className="rowlbl";s.style.color="var(--ink-3)";s.style.fontSize="11px";s.textContent=h;grid.appendChild(s);});
+    toks.forEach((t,r_)=>{
+      const l=document.createElement("div"); l.className="rowlbl";
+      l.innerHTML='"'+t[0].replace(/ /g,"·")+'" <span style="color:var(--ink-3)">#'+t[1]+'</span>';
+      grid.appendChild(l);
+      grid.appendChild(vec(tokv[r_],345,"r"+r_));
+      const p1=document.createElement("div"); p1.className="op"; p1.textContent="+"; grid.appendChild(p1);
+      grid.appendChild(vec(posv[r_],262,"r"+r_));
+      const p2=document.createElement("div"); p2.className="op"; p2.textContent="="; grid.appendChild(p2);
+      const sums=tokv[r_].map((v,i)=>+(v+posv[r_][i]).toFixed(2));
+      grid.appendChild(vec(sums,205,"s"+r_));
+    });
+    // token/position vectors visible from the start; sums hidden until played
+    requestAnimationFrame(()=>{
+      grid.querySelectorAll(".vc").forEach(n=>{ if(!/\bs\d\b/.test(n.className)) n.classList.add("show"); });
+    });
+  }
+  function reset(){ build(); }
+  build();
+  let t=null;
+  $("#emb-play").onclick=()=>{
+    if(t) clearTimeout(t);
+    grid.querySelectorAll(".vc").forEach(n=>{ if(/\bs\d\b/.test(n.className)) n.classList.remove("show"); });
+    let k=0;
+    const run=()=>{
+      if(k>=4) return;
+      grid.querySelectorAll("#embgrid .s"+k).forEach(n=>n.classList.add("show"));
+      k++; t=setTimeout(run,480);
+    };
+    t=setTimeout(run,200);
+  };
+  $("#emb-reset").onclick=()=>{ if(t) clearTimeout(t); reset(); };
+})();
+
+/* ============================================================
+   03. MULTI-HEAD ATTENTION — 10 step morph
+   ============================================================ */
+(function(){
+  /* ---- tiny linear algebra with seeded values ---- */
+  function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const rnd = mulberry(20260803);
+  const T=6, D=4, H=2, HD=2;
+  const TOKS=["Hello",",","·I","·am","·a","·model"];
+  const rand=()=>+((rnd()*2-1).toFixed(1));
+  const X  = Array.from({length:T},()=>Array.from({length:D},rand));
+  const Wq = Array.from({length:D},()=>Array.from({length:D},rand));
+  const Wk = Array.from({length:D},()=>Array.from({length:D},rand));
+  const Wv = Array.from({length:D},()=>Array.from({length:D},rand));
+  const mm=(A,B)=>A.map(r=>B[0].map((_,j)=>+(r.reduce((s,v,k)=>s+v*B[k][j],0).toFixed(1))));
+  const Q=mm(X,Wq), K=mm(X,Wk), V=mm(X,Wv);
+  // per-head scores / weights / context
+  const S=[],W=[],C=[];
+  for(let h=0;h<H;h++){
+    const s=[],w=[],c=[];
+    for(let i=0;i<T;i++){
+      const row=[];
+      for(let j=0;j<T;j++){
+        let d=0; for(let k=0;k<HD;k++) d+=Q[i][h*HD+k]*K[j][h*HD+k];
+        row.push(+d.toFixed(1));
+      }
+      s.push(row);
+    }
+    for(let i=0;i<T;i++){
+      const scaled=s[i].map((v,j)=> j>i ? -Infinity : v/Math.sqrt(HD));
+      const mx=Math.max(...scaled.filter(v=>isFinite(v)));
+      const ex=scaled.map(v=> isFinite(v)? Math.exp(v-mx) : 0);
+      const sum=ex.reduce((a,b)=>a+b,0);
+      w.push(ex.map(v=>+(v/sum).toFixed(2)));
+    }
+    for(let i=0;i<T;i++){
+      const row=[];
+      for(let d=0;d<HD;d++){ let acc=0; for(let j=0;j<T;j++) acc+=w[i][j]*V[j][h*HD+d]; row.push(+acc.toFixed(1)); }
+      c.push(row);
+    }
+    S.push(s); W.push(w); C.push(c);
+  }
+  const merged = Array.from({length:T},(_,i)=>[C[0][i][0],C[0][i][1],C[1][i][0],C[1][i][1]]);
+  const Wo = Array.from({length:D},()=>Array.from({length:D},rand));
+  const O = mm(merged,Wo);
+
+  /* ---- colors ---- */
+  const COL={x:"#6E8399", q:"#C2255C", k:"#0E7C86", v:"#6842C2", s:"#C46A10", w:"#0E7C86", c:"#1E3A5F", o:"#0F2237"};
+  function tint(hex,v,max){
+    const a=Math.min(1,Math.abs(v)/max)*0.72+0.10;
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return "rgba("+r+","+g+","+b+","+a.toFixed(3)+")";
+  }
+  const CW=34, CH=24, PX=36, PY=26;
+
+  /* ---- scene builder ---- */
+  function matCells(out, key, M, ox, oy, colFn, opts){
+    opts=opts||{};
+    const gapAt = opts.gap;      // insert extra gap before this column
+    const gapPx = opts.gapPx||16;
+    M.forEach((row,i)=>row.forEach((v,j)=>{
+      const x = ox + j*PX + (gapAt!=null && j>=gapAt ? gapPx : 0);
+      const y = oy + i*PY;
+      out.push({key:key+":"+i+","+j, x:x, y:y, v:v, fill:colFn(v,i,j), opacity: opts.opacity==null?1:opts.opacity,
+                text: opts.text? opts.text(v) : (v===-Infinity? "−∞" : v.toFixed(1))});
+    }));
+  }
+  function matCellsT(out, key, M, ox, oy, colFn, opts){ // transposed placement, keys keep original (i,j)
+    opts=opts||{};
+    M.forEach((row,i)=>row.forEach((v,j)=>{
+      out.push({key:key+":"+i+","+j, x: ox + i*PX, y: oy + j*PY, v:v, fill:colFn(v,i,j),
+                opacity: opts.opacity==null?1:opts.opacity, text: v.toFixed(1)});
+    }));
+  }
+  const cx = v=>tint(COL.x,v,1.2), cq=v=>tint(COL.q,v,2.2), ck=v=>tint(COL.k,v,2.2), cv=v=>tint(COL.v,v,2.2);
+  const cs = v=>(v===-Infinity? "#DFE6ED" : tint(COL.s,v,3)), cw=v=>tint(COL.w,v,1), cc=v=>tint(COL.c,v,2), co=v=>tint(COL.o,v,4);
+
+  // sub-matrix helper: columns [a,b) of M
+  const cols=(M,a,b)=>M.map(r=>r.slice(a,b));
+
+  function headCells(out, h, ox, oy, opacity){
+    // Q,K,V of head h at 3 columns spacing
+    const qm=cols(Q,h*HD,h*HD+HD), km=cols(K,h*HD,h*HD+HD), vm=cols(V,h*HD,h*HD+HD);
+    qm.forEach((row,i)=>row.forEach((v,j)=>out.push({key:"q:"+i+","+(h*HD+j),x:ox+j*PX,y:oy+i*PY,fill:cq(v),text:v.toFixed(1),opacity:opacity})));
+    km.forEach((row,i)=>row.forEach((v,j)=>out.push({key:"k:"+i+","+(h*HD+j),x:ox+110+j*PX,y:oy+i*PY,fill:ck(v),text:v.toFixed(1),opacity:opacity})));
+    vm.forEach((row,i)=>row.forEach((v,j)=>out.push({key:"v:"+i+","+(h*HD+j),x:ox+220+j*PX,y:oy+i*PY,fill:cv(v),text:v.toFixed(1),opacity:opacity})));
+  }
+
+  const label=(x,y,t,cls)=>({x:x,y:y,t:t,cls:cls||"ttl"});
+
+  /* ---- 10 steps ---- */
+  const STEPS = [
+    { /*0*/
+      title:"입력 x — 토큰마다 하나의 벡터",
+      code:'b, num_tokens, d_in = x.shape        <span class="cm"># 1, 6, 4</span>',
+      rail:[["b","1"],["num_tokens","6"],["d_in","4"]], hot:[],
+      why:"토큰 6개, 각각 4차원",
+      desc:"실제 모델에서는 d_in=768이지만 원리는 같습니다. 행 하나가 토큰 하나의 임베딩입니다.",
+      build(){ const c=[],a=[];
+        matCells(c,"x",X,420,150,cx);
+        TOKS.forEach((t,i)=>a.push({x:412,y:150+i*PY+12,t:t,cls:"sm",anchor:"end"}));
+        a.push(label(420+2*PX,132,"x  (6 × 4)"));
+        return {cells:c,anno:a};
+      }},
+    { /*1*/
+      title:"① Q, K, V — 같은 x를 세 번 다르게 투영",
+      code:'keys = self.W_key(x)      <span class="cm"># (b, num_tokens, d_out)</span>\nqueries = self.W_query(x)\nvalues = self.W_value(x)',
+      rail:[["b","1"],["num_tokens","6"],["d_out","4"]], hot:[2],
+      why:"x 하나 → Q/K/V 셋. shape은 동일",
+      desc:"Query는 '내가 무엇을 찾는가', Key는 '나는 무엇을 제공하는가', Value는 '실제로 전달할 내용'입니다. 세 개의 서로 다른 Linear를 통과했을 뿐 shape은 x와 같습니다.",
+      build(){ const c=[],a=[];
+        matCells(c,"x",X,40,150,cx,{opacity:.35});
+        matCells(c,"q",Q,290,150,cq);
+        matCells(c,"k",K,510,150,ck);
+        matCells(c,"v",V,730,150,cv);
+        a.push({x:40+2*PX,y:132,t:"x",cls:"ttl"});
+        a.push({x:290+2*PX,y:132,t:"Q  queries",cls:"ttl",fill:COL.q});
+        a.push({x:510+2*PX,y:132,t:"K  keys",cls:"ttl",fill:COL.k});
+        a.push({x:730+2*PX,y:132,t:"V  values",cls:"ttl",fill:COL.v});
+        a.push({x:230,y:200,t:"@ W_query",cls:"sm"});
+        a.push({x:490,y:340,t:"세 행렬 모두 (6 × 4)",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*2*/
+      title:"② view — 마지막 차원 4를 헤드 2개로 쪼갠다",
+      code:'keys = keys.view(b, num_tokens, self.num_heads, self.head_dim)\n<span class="cm"># [1,6,4] → [1,6,2,2]   값은 그대로, 해석만 바뀜</span>',
+      rail:[["b","1"],["num_tokens","6"],["num_heads","2"],["head_dim","2"]], hot:[2,3],
+      why:"d_out 4 = num_heads 2 × head_dim 2",
+      desc:"셀이 사라지거나 새로 생기지 않고 사이가 벌어지기만 합니다. 이것이 view의 정체입니다 — 데이터는 그대로 두고 '4칸짜리 하나'를 '2칸짜리 둘'로 읽는 방식만 바꿉니다.",
+      build(){ const c=[],a=[];
+        matCells(c,"x",X,40,150,cx,{opacity:0});
+        matCells(c,"q",Q,270,150,cq,{gap:2});
+        matCells(c,"k",K,500,150,ck,{gap:2});
+        matCells(c,"v",V,730,150,cv,{gap:2});
+        [["Q",270],["K",500],["V",730]].forEach(([n,x])=>{
+          a.push({x:x+2*PX+8,y:118,t:n,cls:"ttl"});
+          a.push({x:x+PX,y:138,t:"head 0",cls:"sm"});
+          a.push({x:x+PX+2*PX+16,y:138,t:"head 1",cls:"sm"});
+        });
+        a.push({x:490,y:340,t:"[k1 k2 | k3 k4]  →  head0가 [k1 k2], head1이 [k3 k4]를 담당",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*3*/
+      title:"③ transpose(1,2) — 헤드를 앞으로 끌어낸다",
+      code:'keys = keys.transpose(1, 2)\n<span class="cm"># [1,6,2,2] → [1,2,6,2]  헤드별로 독립된 (6×2) 행렬 2세트</span>',
+      rail:[["b","1"],["num_heads","2"],["num_tokens","6"],["head_dim","2"]], hot:[1,2],
+      why:"이제 헤드마다 완전히 분리된 작업장",
+      desc:"축 순서를 바꾸면 (num_tokens, head_dim) 행렬이 헤드 개수만큼 독립적으로 존재하게 됩니다. 이 형태여야 배치 행렬곱 한 번으로 모든 헤드의 어텐션을 동시에 계산할 수 있습니다.",
+      build(){ const c=[],a=[];
+        headCells(c,0,90,170,1); headCells(c,1,560,170,1);
+        a.push({x:90+150,y:140,t:"HEAD 0",cls:"ttl"});
+        a.push({x:560+150,y:140,t:"HEAD 1",cls:"ttl"});
+        [[90,"Q₀"],[200,"K₀"],[310,"V₀"]].forEach(([x,n])=>a.push({x:x+PX-18,y:162,t:n,cls:"sm"}));
+        [[560,"Q₁"],[670,"K₁"],[780,"V₁"]].forEach(([x,n])=>a.push({x:x+PX-18,y:162,t:n,cls:"sm"}));
+        a.push({x:490,y:360,t:"두 헤드는 서로의 값을 전혀 보지 않습니다 — 병렬 계산이 가능한 이유",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*4*/
+      title:"④ Q @ Kᵀ — 토큰 사이의 유사도 점수",
+      code:'attn_scores = queries @ keys.transpose(2, 3)\n<span class="cm"># [b,h,6,2] @ [b,h,2,6] → [b,h,6,6]</span>',
+      rail:[["b","1"],["num_heads","2"],["num_tokens","6"],["num_tokens","6"]], hot:[3],
+      why:"마지막 축이 head_dim에서 num_tokens로",
+      desc:"K를 눕히면(transpose(2,3)) 안쪽 차원 head_dim이 맞물려 사라지고, 남는 것은 토큰×토큰 격자입니다. (i, j)칸은 'i번째 토큰이 j번째 토큰을 얼마나 참고할 만한가'를 뜻합니다.",
+      build(){ const c=[],a=[];
+        // Q0 on the left, K0 transposed on top, scores in the middle
+        cols(Q,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"q:"+i+","+j,x:110+j*PX,y:170+i*PY,fill:cq(v),text:v.toFixed(1)})));
+        // K0 transposed on top
+        cols(K,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"k:"+i+","+j,x:290+i*PX,y:92+j*PY,fill:ck(v),text:v.toFixed(1)})));
+        matCells(c,"s0",S[0],290,170,cs);
+        matCells(c,"s1",S[1],700,170,cs,{opacity:.4});
+        // fade others
+        cols(Q,2,4).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"q:"+i+","+(2+j),x:110+j*PX,y:170+i*PY,fill:cq(v),opacity:0})));
+        cols(K,2,4).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"k:"+i+","+(2+j),x:290+i*PX,y:92+j*PY,fill:ck(v),opacity:0})));
+        V.forEach((row,i)=>row.forEach((v,j)=>c.push({key:"v:"+i+","+j,x:40+ (j%2)*PX,y:400+i*4,fill:cv(v),opacity:0})));
+        a.push({x:290+3*PX,y:74,t:"K₀ᵀ  (2 × 6)",cls:"ttl",fill:COL.k});
+        a.push({x:110+PX,y:158,t:"Q₀ (6×2)",cls:"sm",fill:COL.q});
+        a.push({x:290+3*PX,y:158,t:"attn_scores  head 0  (6 × 6)",cls:"ttl"});
+        a.push({x:700+3*PX,y:158,t:"head 1 (동일 연산)",cls:"sm"});
+        a.push({x:490,y:380,t:"(i, j) 칸 = Q의 i행 · K의 j행 내적",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*5*/
+      title:"⑤ Causal Mask — 미래를 가린다",
+      code:'mask_bool = self.mask.bool()[:num_tokens, :num_tokens]\nattn_scores.masked_fill_(mask_bool, -torch.inf)\n<span class="cm"># triu(diagonal=1): 대각선 위쪽을 −inf로</span>',
+      rail:[["b","1"],["num_heads","2"],["num_tokens","6"],["num_tokens","6"]], hot:[],
+      why:"shape 변화 없음. 값만 −∞",
+      desc:"i번째 토큰은 자기 자신과 그 이전만 볼 수 있어야 합니다. 대각선 위쪽(j > i)을 −∞로 채우면 다음 단계 softmax에서 exp(−∞)=0이 되어 가중치가 정확히 0이 됩니다. 0을 직접 넣지 않고 −∞를 넣는 이유가 여기 있습니다.",
+      build(){ const c=[],a=[];
+        cols(Q,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"q:"+i+","+j,x:110+j*PX,y:170+i*PY,fill:cq(v),text:v.toFixed(1),opacity:.25})));
+        cols(K,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"k:"+i+","+j,x:290+i*PX,y:92+j*PY,fill:ck(v),text:v.toFixed(1),opacity:.25})));
+        const M0=S[0].map((r,i)=>r.map((v,j)=> j>i? -Infinity : v));
+        const M1=S[1].map((r,i)=>r.map((v,j)=> j>i? -Infinity : v));
+        matCells(c,"s0",M0,290,170,cs);
+        matCells(c,"s1",M1,700,170,cs,{opacity:.4});
+        a.push({x:290+3*PX,y:158,t:"attn_scores  head 0  (마스킹 후)",cls:"ttl"});
+        a.push({x:290+3*PX,y:380,t:"회색 = −∞  ·  in-place 연산(밑줄 _)이라 원본을 직접 덮어씁니다",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*6*/
+      title:"⑥ scale + softmax — 점수를 확률로",
+      code:'attn_weights = torch.softmax(attn_scores / keys.shape[-1]**0.5, dim=-1)\n<span class="cm"># keys.shape[-1] = head_dim (= 2), d_out이 아님에 주의</span>',
+      rail:[["b","1"],["num_heads","2"],["num_tokens","6"],["num_tokens","6"]], hot:[],
+      why:"각 행의 합이 정확히 1.00",
+      desc:"√head_dim으로 나누는 이유는 차원이 커질수록 내적 값이 커져 softmax가 한쪽으로 쏠리고 기울기가 사라지기 때문입니다. 나눈 뒤 마지막 축(dim=-1)으로 softmax를 하면 각 행이 '이 토큰이 어디를 얼마나 볼지'의 확률 분포가 됩니다.",
+      build(){ const c=[],a=[];
+        cols(Q,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"q:"+i+","+j,x:110+j*PX,y:170+i*PY,fill:cq(v),text:v.toFixed(1),opacity:0})));
+        cols(K,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"k:"+i+","+j,x:290+i*PX,y:92+j*PY,fill:ck(v),text:v.toFixed(1),opacity:0})));
+        matCells(c,"s0",W[0],290,170,(v)=> v===0? "#F2F5F8" : cw(v), {text:v=>v.toFixed(2)});
+        matCells(c,"s1",W[1],700,170,(v)=> v===0? "#F2F5F8" : cw(v), {opacity:.4,text:v=>v.toFixed(2)});
+        S[0].forEach((r,i)=>a.push({x:290+6*PX+34,y:170+i*PY+12,t:"합 1.00",cls:"sm",anchor:"start"}));
+        a.push({x:290+3*PX,y:158,t:"attn_weights  head 0",cls:"ttl"});
+        a.push({x:290+3*PX,y:380,t:"첫 행은 자기 자신만 볼 수 있으니 1.00 — 정보가 하나도 섞이지 않습니다",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*7*/
+      title:"⑦ weights @ V — 컨텍스트 벡터",
+      code:'context_vec = (attn_weights @ values).transpose(1, 2)\n<span class="cm"># [b,h,6,6] @ [b,h,6,2] → [b,h,6,2]</span>',
+      rail:[["b","1"],["num_heads","2"],["num_tokens","6"],["head_dim","2"]], hot:[3],
+      why:"다시 head_dim으로. 토큰 축은 유지",
+      desc:"각 토큰의 새 표현은 '내가 주목한 만큼 가중치를 준 Value들의 합'입니다. 어텐션이 실제로 정보를 옮기는 지점이 바로 이 곱셈 한 줄입니다.",
+      sweep:{from:"ctx"},
+      build(){ const c=[],a=[];
+        matCells(c,"s0",W[0],90,170,(v)=> v===0? "#F2F5F8" : cw(v), {text:v=>v.toFixed(2),opacity:.75});
+        matCells(c,"s1",W[1],700,170,(v)=> v===0? "#F2F5F8" : cw(v), {opacity:0,text:v=>v.toFixed(2)});
+        cols(V,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"v:"+i+","+j,x:350+j*PX,y:170+i*PY,fill:cv(v),text:v.toFixed(1)})));
+        cols(V,2,4).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"v:"+i+","+(2+j),x:350+j*PX,y:170+i*PY,fill:cv(v),opacity:0,text:v.toFixed(1)})));
+        cols(Q,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"q:"+i+","+j,x:110+j*PX,y:170+i*PY,fill:cq(v),opacity:0})));
+        cols(K,0,2).forEach((row,i)=>row.forEach((v,j)=>c.push({key:"k:"+i+","+j,x:290+i*PX,y:92+j*PY,fill:ck(v),opacity:0})));
+        matCells(c,"c0",C[0],510,170,cc);
+        matCells(c,"c1",C[1],700,170,cc,{opacity:.4});
+        a.push({x:90+3*PX,y:158,t:"attn_weights (6×6)",cls:"ttl"});
+        a.push({x:350+PX,y:158,t:"V₀ (6×2)",cls:"ttl",fill:COL.v});
+        a.push({x:510+PX,y:158,t:"context head 0",cls:"ttl"});
+        a.push({x:700+PX,y:158,t:"head 1",cls:"sm"});
+        a.push({x:322,y:170+3*PY,t:"@",cls:"ttl"});
+        a.push({x:482,y:170+3*PY,t:"=",cls:"ttl"});
+        return {cells:c,anno:a};
+      }},
+    { /*8*/
+      title:"⑧ transpose + contiguous + view — 헤드를 다시 합친다",
+      code:'context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out)\n<span class="cm"># [1,6,2,2] → [1,6,4]   transpose 뒤라 contiguous()가 필수</span>',
+      rail:[["b","1"],["num_tokens","6"],["d_out","4"]], hot:[2],
+      why:"헤드 2개 × 2차원 = 4차원으로 복원",
+      desc:"head 0의 결과가 앞 2칸, head 1의 결과가 뒤 2칸에 그대로 이어 붙습니다. ②의 분할을 정확히 되돌리는 연산입니다. 단, transpose로 메모리가 비연속이 되었기 때문에 contiguous()로 실제 복사를 한 번 해야 view가 통과합니다.",
+      build(){ const c=[],a=[];
+        matCells(c,"s0",W[0],90,170,()=>"#F2F5F8",{opacity:0,text:()=>""});
+        matCells(c,"s1",W[1],700,170,()=>"#F2F5F8",{opacity:0,text:()=>""});
+        V.forEach((row,i)=>row.forEach((v,j)=>c.push({key:"v:"+i+","+j,x:350+(j%2)*PX,y:170+i*PY,fill:cv(v),opacity:0})));
+        C[0].forEach((row,i)=>row.forEach((v,j)=>c.push({key:"c0:"+i+","+j,x:420+j*PX,y:170+i*PY,fill:cc(v),text:v.toFixed(1)})));
+        C[1].forEach((row,i)=>row.forEach((v,j)=>c.push({key:"c1:"+i+","+j,x:420+(2+j)*PX,y:170+i*PY,fill:cc(v),text:v.toFixed(1)})));
+        a.push({x:420+2*PX,y:132,t:"context_vec  (6 × 4)",cls:"ttl"});
+        a.push({x:420+PX,y:152,t:"head 0",cls:"sm"});
+        a.push({x:420+3*PX,y:152,t:"head 1",cls:"sm"});
+        a.push({x:490,y:360,t:"이 시점까지 헤드끼리는 서로 정보를 주고받은 적이 없습니다",cls:"sm"});
+        return {cells:c,anno:a};
+      }},
+    { /*9*/
+      title:"⑨ out_proj — 헤드들을 비로소 섞는다",
+      code:'context_vec = self.out_proj(context_vec)\n<span class="cm"># (1,6,4) → (1,6,4)   Linear(d_out, d_out)</span>',
+      rail:[["b","1"],["num_tokens","6"],["d_out","4"]], hot:[],
+      why:"입력 x와 완전히 동일한 shape으로 복귀",
+      desc:"앞 단계까지 헤드들은 각자 따로 놀았습니다. out_proj가 4차원 전체를 섞는 Linear이기 때문에, 여기서 처음으로 head 0의 결론과 head 1의 결론이 결합됩니다. 결과 shape은 처음 입력 x와 같으므로 곧바로 잔차 연결에 더할 수 있습니다.",
+      build(){ const c=[],a=[];
+        C[0].forEach((row,i)=>row.forEach((v,j)=>c.push({key:"c0:"+i+","+j,x:180+j*PX,y:170+i*PY,fill:cc(v),text:v.toFixed(1),opacity:.35})));
+        C[1].forEach((row,i)=>row.forEach((v,j)=>c.push({key:"c1:"+i+","+j,x:180+(2+j)*PX,y:170+i*PY,fill:cc(v),text:v.toFixed(1),opacity:.35})));
+        matCells(c,"o",O,560,170,co);
+        matCells(c,"x",X,40,150,cx,{opacity:0});
+        a.push({x:180+2*PX,y:152,t:"헤드별 결과",cls:"sm"});
+        a.push({x:560+2*PX,y:132,t:"out_proj 통과 → 최종 출력 (6 × 4)",cls:"ttl"});
+        a.push({x:440,y:170+3*PY,t:"@ W_o",cls:"sm"});
+        a.push({x:490,y:360,t:"→ TransformerBlock으로 돌아가 shortcut과 더해집니다",cls:"sm"});
+        return {cells:c,anno:a};
+      }}
+  ];
+
+  /* ---- renderer with key-based morphing ---- */
+  const gCells=$("#mha-cells"), gAnno=$("#mha-anno");
+  const nodes=new Map();
+  let cur=-1, playing=null;
+
+  function render(idx){
+    const st=STEPS[idx];
+    const {cells,anno}=st.build();
+    const seen=new Set();
+    cells.forEach(c=>{
+      seen.add(c.key);
+      let n=nodes.get(c.key);
+      if(!n){
+        n=el("g",{class:"cell"});
+        const r=el("rect",{width:CW,height:CH,rx:2,stroke:"rgba(15,34,55,.13)","stroke-width":.8});
+        const t=el("text",{x:CW/2,y:CH/2+.5,fill:"#0F2237"});
+        n.appendChild(r); n.appendChild(t);
+        n.style.transform="translate("+c.x+"px,"+(c.y)+"px)";
+        n.style.opacity=0;
+        gCells.appendChild(n);
+        nodes.set(c.key,n);
+        requestAnimationFrame(()=>{ n.style.opacity = (c.opacity==null?1:c.opacity); });
+      }
+      n.style.transform="translate("+c.x+"px,"+c.y+"px)";
+      n.style.opacity = (c.opacity==null?1:c.opacity);
+      n.querySelector("rect").setAttribute("fill",c.fill);
+      n.querySelector("text").textContent = (c.opacity===0? "" : (c.text!=null?c.text:""));
+    });
+    nodes.forEach((n,k)=>{ if(!seen.has(k)) n.style.opacity=0; });
+
+    gAnno.style.opacity=0;
+    setTimeout(()=>{
+      gAnno.innerHTML="";
+      anno.forEach(a=>{
+        const t=el("text",{x:a.x,y:a.y,class:a.cls||"ttl","text-anchor":a.anchor||"middle"});
+        if(a.fill) t.setAttribute("fill",a.fill);
+        t.textContent=a.t; gAnno.appendChild(t);
+      });
+      gAnno.style.opacity=1;
+    },170);
+
+    $("#mha-code").innerHTML=st.code;
+    $("#mha-title").textContent=st.title;
+    $("#mha-desc").textContent=st.desc;
+    $("#mha-why").textContent=st.why;
+    renderRail($("#mha-rail"), st.rail, st.hot);
+    document.querySelectorAll("#mha-dots .dot").forEach((d,i)=>{
+      d.className="dot"+(i===idx?" on":(i<idx?" done":""));
+    });
+    cur=idx;
+  }
+  // dots
+  const dots=$("#mha-dots");
+  STEPS.forEach((s,i)=>{
+    const b=document.createElement("button"); b.className="dot"; b.setAttribute("aria-label","단계 "+i);
+    b.onclick=()=>{ stop(); render(i); }; dots.appendChild(b);
+  });
+  function stop(){ if(playing){clearInterval(playing);playing=null;$("#mha-play").textContent="▶ 재생";} }
+  $("#mha-next").onclick=()=>{ stop(); render((cur+1)%STEPS.length); };
+  $("#mha-prev").onclick=()=>{ stop(); render((cur-1+STEPS.length)%STEPS.length); };
+  $("#mha-play").onclick=()=>{
+    if(playing){ stop(); return; }
+    $("#mha-play").textContent="❚❚ 일시정지";
+    render((cur+1)%STEPS.length);
+    playing=setInterval(()=>{
+      if(cur===STEPS.length-1){ stop(); return; }
+      render(cur+1);
+    },3000);
+  };
+  render(0);
+})();
+
+/* ============================================================
+   04. TRANSFORMER BLOCK FLOW
+   ============================================================ */
+(function(){
+  const g=$("#blkg"), pkt=$("#blk-pkt"), stageLbl=$("#blk-stage");
+  const B=[
+    {id:"n1",x:110,t:"LayerNorm",s:"norm1"},
+    {id:"at",x:250,t:"Multi-Head Attn",s:"self.att"},
+    {id:"d1",x:390,t:"Dropout",s:"drop_shortcut"},
+    {id:"n2",x:570,t:"LayerNorm",s:"norm2"},
+    {id:"ff",x:710,t:"FeedForward",s:"self.ff"}
+  ];
+  const Y=150, BW=110, BH=54;
+  const rects={};
+  B.forEach(b=>{
+    const r=el("rect",{x:b.x,y:Y,width:BW,height:BH,rx:3,class:"flowbox"});
+    g.appendChild(r); rects[b.id]=r;
+    const t=el("text",{x:b.x+BW/2,y:Y+22,class:"flowtxt"}); t.textContent=b.t; g.appendChild(t);
+    const s=el("text",{x:b.x+BW/2,y:Y+40,class:"flowsm"}); s.textContent=b.s; g.appendChild(s);
+  });
+  // plus nodes
+  const P=[{id:"p1",x:535},{id:"p2",x:855}];
+  P.forEach(p=>{
+    const c=el("circle",{cx:p.x,cy:Y+BH/2,r:16,class:"flowbox"}); g.appendChild(c); rects[p.id]=c;
+    const t=el("text",{x:p.x,y:Y+BH/2+1,class:"flowtxt"}); t.setAttribute("font-size","16"); t.textContent="+"; g.appendChild(t);
+  });
+  // arrow marker
+  const defs=el("defs");
+  const mk=el("marker",{id:"ar2",viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"6",markerHeight:"6",orient:"auto"});
+  mk.appendChild(el("path",{d:"M0,0 L10,5 L0,10 z",fill:"#7D93A8"})); defs.appendChild(mk); g.appendChild(defs);
+  // main wire segments
+  const segs=[[40,104],[220,244],[360,384],[500,517],[551,564],[680,704],[820,837],[871,936]];
+  segs.forEach(([a,b])=>{ g.appendChild(el("path",{d:"M"+a+" 177 L"+b+" 177",class:"wire","marker-end":"url(#ar2)"})); });
+  // residual arcs
+  const res1=el("path",{d:"M70 177 L70 66 L535 66 L535 159",class:"wire res"}); g.appendChild(res1);
+  const res2=el("path",{d:"M560 177 L560 286 L855 286 L855 195",class:"wire res"}); g.appendChild(res2);
+  const rl1=el("text",{x:300,y:54,class:"flowsm"}); rl1.setAttribute("fill","#C2255C"); rl1.textContent="shortcut = x   (정규화 전 원본을 그대로 보관)"; g.appendChild(rl1);
+  const rl2=el("text",{x:707,y:304,class:"flowsm"}); rl2.setAttribute("fill","#C2255C"); rl2.textContent="shortcut = x   (어텐션 블록의 출력)"; g.appendChild(rl2);
+  const io1=el("text",{x:36,y:160,class:"flowsm"}); io1.setAttribute("text-anchor","start"); io1.textContent="x (1,6,768)"; g.appendChild(io1);
+  const io2=el("text",{x:944,y:160,class:"flowsm"}); io2.setAttribute("text-anchor","end"); io2.textContent="(1,6,768)"; g.appendChild(io2);
+
+  const seq=[
+    ["n1","x를 그대로 shortcut에 보관 → norm1 통과 (Pre-LN)"],
+    ["at","어텐션: 토큰들끼리 정보 교환"],
+    ["d1","dropout (eval 모드에서는 통과)"],
+    ["p1","+ shortcut — 원본을 되더해 기울기 길을 열어둠"],
+    ["n2","새 x를 다시 보관 → norm2 통과"],
+    ["ff","FeedForward: 각 토큰 내부에서 768→3072→768"],
+    ["p2","+ shortcut — 블록 출력 완성. shape은 입력과 동일"]
+  ];
+  const pos={n1:[165,177],at:[305,177],d1:[445,177],p1:[535,177],n2:[625,177],ff:[765,177],p2:[855,177]};
+  let t=null;
+  $("#blk-play").onclick=()=>{
+    if(t) clearInterval(t);
+    Object.values(rects).forEach(r=>r.classList.remove("act"));
+    let i=0;
+    pkt.setAttribute("opacity","1");
+    const tick=()=>{
+      Object.values(rects).forEach(r=>r.classList.remove("act"));
+      if(i>=seq.length){ clearInterval(t); t=null; pkt.setAttribute("opacity","0"); stageLbl.textContent="완료 · shape 불변"; return; }
+      const [id,txt]=seq[i];
+      rects[id].classList.add("act");
+      pkt.setAttribute("cx",pos[id][0]); pkt.setAttribute("cy",pos[id][1]);
+      pkt.setAttribute("fill", (id==="p1"||id==="p2")? "#C2255C" : "#C46A10");
+      stageLbl.textContent=(i+1)+"/7 · "+txt;
+      i++;
+    };
+    tick(); t=setInterval(tick,1250);
+  };
+  pkt.style.transition="cx .9s cubic-bezier(.5,.05,.3,1), cy .9s";
+})();
+
+/* ============================================================
+   05. GENERATION LOOP
+   ============================================================ */
+(function(){
+  const strip=$("#gen-strip"), bars=$("#gen-bars"), steps=$("#gen-steps"),
+        rail=$("#gen-rail"), why=$("#gen-why"), iterLbl=$("#gen-iter");
+  const START=[["Hello",15496],[",",11],["·I",314],["·am",716]];
+  const CAND=[["·Feature",50065],["iman",39504],["·Byeo",30281],["ken",3464],["·respond",2461],
+              ["·Which",13403],["·SEO",30850],["·Ci",21344],["·Bicycle",39074],["·gain",4461],
+              ["·NEXT",22240],["·plaus",29765]];
+  let seq=[], iter=0, timer=null;
+
+  function drawStrip(newIdx){
+    strip.innerHTML="";
+    seq.forEach((t,i)=>{
+      const d=document.createElement("span");
+      d.className="tok "+(i<START.length? "ctx" : (i===newIdx? "new":"inp"));
+      d.textContent=t[0];
+      strip.appendChild(d);
+    });
+  }
+  function drawBars(pick,vals){
+    bars.innerHTML="";
+    vals.forEach((v,i)=>{
+      const row=document.createElement("div"); row.className="bar"+(i===0?" top":"");
+      const name=document.createElement("span"); name.textContent=v[0]+" #"+v[1];
+      const track=document.createElement("div"); track.style.background="#E6EBF1"; track.style.height="16px";
+      const fill=document.createElement("div"); fill.className="fill"; fill.style.width="0%"; track.appendChild(fill);
+      const num=document.createElement("span"); num.textContent=v[2].toFixed(2);
+      row.appendChild(name); row.appendChild(track); row.appendChild(num);
+      bars.appendChild(row);
+      requestAnimationFrame(()=>{ fill.style.width=Math.max(6,(v[2]/vals[0][2])*100)+"%"; });
+    });
+  }
+  function drawSteps(active,T){
+    const lines=[
+      ["① idx_cond = idx[:, -1024:]", "(1, "+T+")"],
+      ["② logits = model(idx_cond)",  "(1, "+T+", 50257)"],
+      ["③ logits = logits[:, -1, :]", "(1, 50257)"],
+      ["④ idx_next = argmax(...)",    "(1, 1)"],
+      ["⑤ idx = concat((idx, idx_next), dim=1)", "(1, "+(T+1)+")"]
+    ];
+    steps.innerHTML="";
+    lines.forEach((l,i)=>{
+      const d=document.createElement("div");
+      const on = i<=active;
+      d.style.color = i===active? "var(--q)" : (on? "var(--ink)" : "var(--ink-3)");
+      d.style.fontWeight = i===active? "700":"400";
+      d.innerHTML = l[0]+' <span style="color:var(--ink-3)">→ '+l[1]+'</span>';
+      steps.appendChild(d);
+    });
+  }
+  function reset(){
+    if(timer){clearInterval(timer);timer=null;$("#gen-play").textContent="▶ 10토큰 생성";}
+    seq=START.slice(); iter=0;
+    drawStrip(-1); drawSteps(-1,seq.length); bars.innerHTML="";
+    renderRail(rail,[["batch","1"],["seq_len",seq.length]],[]);
+    iterLbl.textContent="iteration 0 / 10";
+    why.textContent="재생을 눌러 시작하세요.";
+  }
+  function iterate(){
+    if(iter>=10){ clearInterval(timer); timer=null; $("#gen-play").textContent="▶ 10토큰 생성";
+      why.textContent="10회 반복 완료 — 시퀀스가 4 → 14로 늘었습니다."; return; }
+    const T=seq.length;
+    // pick candidate values
+    const pool=[];
+    for(let n=0;n<5;n++){ const c=CAND[(iter*3+n)%CAND.length]; pool.push([c[0],c[1], 8.5-n*1.35+((iter*7+n)%5)*0.12]); }
+    pool.sort((a,b)=>b[2]-a[2]);
+    let s=0;
+    drawSteps(0,T); renderRail(rail,[["batch","1"],["seq_len",T]],[1]);
+    why.textContent="① 문맥 자르기 — 아직 1024보다 짧아 그대로 사용";
+    setTimeout(()=>{ drawSteps(1,T); renderRail(rail,[["batch","1"],["seq_len",T],["vocab","50257"]],[2]);
+      why.textContent="② 전체 블록 통과 — 자리마다 어휘 전체 점수가 나옵니다"; },350);
+    setTimeout(()=>{ drawSteps(2,T); renderRail(rail,[["batch","1"],["vocab","50257"]],[1]); drawBars(0,pool);
+      why.textContent="③ 마지막 자리만 사용 — 나머지 "+(T-1)+"자리의 계산은 버려집니다"; },700);
+    setTimeout(()=>{ drawSteps(3,T); renderRail(rail,[["batch","1"],["next_token","1"]],[1]);
+      why.textContent="④ argmax — 가장 높은 하나만 선택 (greedy)"; },1050);
+    setTimeout(()=>{
+      seq.push([pool[0][0],pool[0][1]]);
+      drawStrip(seq.length-1); drawSteps(4,T);
+      renderRail(rail,[["batch","1"],["seq_len",seq.length]],[1]);
+      why.textContent="⑤ 이어붙이기 — 다음 반복의 입력이 한 칸 길어졌습니다";
+      iter++; iterLbl.textContent="iteration "+iter+" / 10";
+    },1400);
+  }
+  $("#gen-play").onclick=()=>{
+    if(timer){ clearInterval(timer); timer=null; $("#gen-play").textContent="▶ 10토큰 생성"; return; }
+    if(iter>=10) reset();
+    $("#gen-play").textContent="❚❚ 일시정지";
+    iterate(); timer=setInterval(iterate,1900);
+  };
+  $("#gen-reset").onclick=reset;
+  reset();
+})();
+</script>
+</body>
+</html>
