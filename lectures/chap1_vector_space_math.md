@@ -13,15 +13,7 @@ embedding, linear layer, softmax, loss, gradient descent를 읽을 수 있는 �
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    Text["텍스트"] --> Vector["벡터 표현"]
-    Vector --> Linear["행렬 곱\nLinear layer"]
-    Linear --> Activation["활성화 함수\nReLU/GELU 등"]
-    Activation --> Prob["Softmax\n확률 분포"]
-    Prob --> Loss["Loss\n정답과 비교"]
-    Loss --> Grad["Gradient\n파라미터 업데이트"]
-```
+![Figure 1.1: Neural Computation Graph and Backpropagation](./figures/chap1_computation_graph.drawio.svg)
 
 ## 학습 목표
 

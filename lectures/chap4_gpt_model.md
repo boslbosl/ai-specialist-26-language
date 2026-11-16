@@ -11,21 +11,7 @@ GPT는 embedding, positional information, Transformer block, output head를 연�
 
 ## 전체 구조 Overview
 
-```mermaid
-flowchart TD
-    Text["텍스트"] --> Tok["Tokenizer"]
-    Tok --> IDs["Token IDs"]
-    IDs --> TE["Token embedding"]
-    IDs --> PE["Position embedding"]
-    TE --> Add["Embedding 합"]
-    PE --> Add
-    Add --> Block1["Transformer Block x N"]
-    Block1 --> Norm["Final LayerNorm"]
-    Norm --> Head["Linear output head"]
-    Head --> Logits["Vocabulary logits"]
-    Logits --> Decode["Temperature / Top-k / Sampling"]
-    Decode --> Next["다음 토큰"]
-```
+![Figure 4.1: Decoder-Only Transformer (GPT) Architecture and Autoregressive Generation Loop](./figures/chap4_gpt_architecture_overview.drawio.svg)
 
 ## 학습 목표
 
@@ -65,18 +51,7 @@ x:         [batch, seq_len, emb_dim]
 
 GPT block은 보통 다음 흐름을 가집니다.
 
-```mermaid
-flowchart TD
-    X["입력 x"] --> LN1["LayerNorm"]
-    LN1 --> MHA["Masked Multi-Head Attention"]
-    MHA --> Add1["Residual add"]
-    X --> Add1
-    Add1 --> LN2["LayerNorm"]
-    LN2 --> FFN["Feed Forward Network"]
-    FFN --> Add2["Residual add"]
-    Add1 --> Add2
-    Add2 --> Out["다음 block 입력"]
-```
+![Figure 4.2: Pre-LayerNorm Transformer Decoder Block](./figures/chap4_transformer_decoder_block.drawio.svg)
 
 구현에 따라 LayerNorm 위치가 조금 다를 수 있습니다.
 GPT-2 스타일 실습에서는 보통 pre-LayerNorm 구조를 사용합니다.

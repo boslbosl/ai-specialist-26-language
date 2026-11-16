@@ -13,15 +13,7 @@ DPO는 reward model과 복잡한 RL loop 없이 preference data를 직접 활용
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    Pre["사전학습 모델"] --> SFTData["Instruction dataset\nprompt + response"]
-    SFTData --> SFT["Supervised fine-tuning"]
-    SFT --> Assist["지시를 따르는 모델"]
-    Assist --> Pref["Preference dataset\nchosen / rejected"]
-    Pref --> DPO["DPO 학습"]
-    DPO --> Aligned["선호도 반영 모델"]
-```
+![Figure 7.1: Supervised Instruction Fine-Tuning (SFT) and Direct Preference Optimization (DPO)](./figures/chap7_sft_and_dpo_alignment.drawio.svg)
 
 ## 학습 목표
 

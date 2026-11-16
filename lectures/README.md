@@ -9,15 +9,7 @@
 
 ## 전체 흐름
 
-```mermaid
-flowchart LR
-    C1["Chap1\n벡터와 신경망 기초"] --> C2["Chap2\n토큰화와 데이터셋"]
-    C2 --> C3["Chap3\nAttention"]
-    C3 --> C4["Chap4\nGPT 구조와 생성"]
-    C4 --> C5["Chap5\n사전학습"]
-    C5 --> C6["Chap6\n분류 파인튜닝과 LoRA"]
-    C6 --> C7["Chap7\nInstruction tuning과 DPO"]
-```
+![Figure 0.1: End-to-End LLM Curriculum Pipeline](./figures/readme_curriculum_flow.drawio.svg)
 
 ## 파일 목록
 

@@ -15,19 +15,7 @@ GPT에서는 여기에 causal mask를 추가해, 미래 토큰을 보지 못하�
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    X["입력 벡터 X\n[batch, tokens, emb]"] --> Q["Query"]
-    X --> K["Key"]
-    X --> V["Value"]
-    Q --> Score["Q x K^T\nAttention score"]
-    K --> Score
-    Score --> Scale["Scale"]
-    Scale --> Mask["Causal mask"]
-    Mask --> Softmax["Softmax\nAttention weight"]
-    Softmax --> Context["Weight x V\nContext vector"]
-    V --> Context
-```
+![Figure 3.1: Causal Scaled Dot-Product Attention and Multi-Head Aggregation](./figures/chap3_scaled_dot_product_mha.drawio.svg)
 
 ## 학습 목표
 
