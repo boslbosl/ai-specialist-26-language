@@ -10,13 +10,46 @@
 ## 전체 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 28, 'rankSpacing': 38, 'padding': 10 }
+}}%%
 flowchart LR
-    C1["Chap1\n벡터와 신경망 기초"] --> C2["Chap2\n토큰화와 데이터셋"]
-    C2 --> C3["Chap3\nAttention"]
-    C3 --> C4["Chap4\nGPT 구조와 생성"]
-    C4 --> C5["Chap5\n사전학습"]
-    C5 --> C6["Chap6\n분류 파인튜닝과 LoRA"]
-    C6 --> C7["Chap7\nInstruction tuning과 DPO"]
+    subgraph P1["I. Foundations & Architecture"]
+        direction LR
+        C1["<b>Chap 1. Vector Space</b><br/>Linear · Softmax · CE Loss"] --> C2["<b>Chap 2. Data & Embedding</b><br/>BPE · Sliding Window · Pos Emb"]
+        C2 --> C3["<b>Chap 3. Self-Attention</b><br/>Scaled Dot-Product · Causal Mask"]
+        C3 --> C4["<b>Chap 4. GPT Architecture</b><br/>Decoder Block × N · Decoding"]
+    end
+
+    subgraph P2["II. Pretraining"]
+        direction LR
+        C5["<b>Chap 5. Pretraining</b><br/>Autoregressive CLM · AdamW"]
+    end
+
+    subgraph P3["III. Adaptation & Alignment"]
+        direction LR
+        C6["<b>Chap 6. Fine-Tuning & LoRA</b><br/>Classification Head · ΔW = BA"] --> C7["<b>Chap 7. SFT & DPO</b><br/>Instruction Masking · Preference"]
+    end
+
+    C4 --> C5 --> C6
+
+    classDef found fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef pre fill:#fff3e6,stroke:#d97706,stroke-width:1.5px,color:#0f172a;
+    classDef align fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+    class C1,C2,C3,C4 found;
+    class C5 pre;
+    class C6,C7 align;
+    style P1 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style P2 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style P3 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 파일 목록

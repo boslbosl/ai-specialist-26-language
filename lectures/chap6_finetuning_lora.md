@@ -13,14 +13,64 @@ fine-tuning을 통해 모델을 해당 작업에 맞춰 조정할 수 있습니�
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 34, 'padding': 10 }
+}}%%
 flowchart LR
-    Pre["사전학습 GPT"] --> Data["분류 데이터\ntext + label"]
-    Data --> Tok["Tokenize + Padding"]
-    Tok --> Hidden["GPT hidden states"]
-    Hidden --> Head["Classification head"]
-    Head --> Loss["Cross entropy"]
-    Loss --> Update["파라미터 업데이트"]
-    Update --> LoRA["LoRA 적용 시\n작은 A/B 행렬만 학습"]
+    subgraph DATA["1. Classification Input"]
+        direction TB
+        Sample["<b>Labeled Sample (x, y)</b><br/>Text + Class y ∈ {1..C}"] --> Tok["<b>Tokenize & Right-Pad</b><br/>input_ids, attn_mask ∈ ℤ^{B×T}"]
+    end
+
+    subgraph LORA["2. LoRA Reparameterization (Hu et al., 2021)"]
+        direction LR
+        InX["<b>Layer Input x</b><br/>ℝ^{B × T × d}"]
+        W0["<b>Frozen Pretrained W_0</b><br/>ℝ^{d × k} (requires_grad=False)"]
+        MatA["<b>LoRA Down-Proj A</b><br/>ℝ^{d × r}, A ~ N(0, σ²)"]
+        MatB["<b>LoRA Up-Proj B</b><br/>ℝ^{r × k}, B = 0 (r ≪ d)"]
+        Sum(["<b>⊕ Scaled Merge</b><br/>h = xW_0 + (α/r)xAB"])
+
+        InX -- "Frozen Path" --> W0 --> Sum
+        InX -- "Trainable Low-Rank" --> MatA --> MatB --> Sum
+    end
+
+    subgraph HEAD["3. Classification Head & Objective"]
+        direction LR
+        Pool["<b>Last Valid Token</b><br/>h_{last} ∈ ℝ^{B × d}"]
+        ClsHead["<b>Linear Classifier W_cls</b><br/>Logits z ∈ ℝ^{B × C}"]
+        Loss["<b>Classification CE Loss</b><br/>ℒ_cls(z, y) → Update Only (A, B, W_cls)"]
+        Pool --> ClsHead --> Loss
+    end
+
+    Tok --> InX
+    Sum --> Pool
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef frozen fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 4 2,color:#334155;
+    classDef lora fill:#fff1f2,stroke:#e11d48,stroke-width:1.8px,color:#0f172a;
+    classDef comp fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef head fill:#fff3e6,stroke:#d97706,stroke-width:1.5px,color:#0f172a;
+    classDef loss fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+    classDef op fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+
+    class Sample,Tok,InX data;
+    class W0 frozen;
+    class MatA,MatB lora;
+    class Pool comp;
+    class ClsHead head;
+    class Loss loss;
+    class Sum op;
+    style DATA fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style LORA fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style HEAD fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표

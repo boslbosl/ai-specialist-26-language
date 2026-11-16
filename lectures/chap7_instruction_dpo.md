@@ -14,13 +14,60 @@ DPO는 reward model과 복잡한 RL loop 없이 preference data를 직접 활용
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 34, 'padding': 10 }
+}}%%
 flowchart LR
-    Pre["사전학습 모델"] --> SFTData["Instruction dataset\nprompt + response"]
-    SFTData --> SFT["Supervised fine-tuning"]
-    SFT --> Assist["지시를 따르는 모델"]
-    Assist --> Pref["Preference dataset\nchosen / rejected"]
-    Pref --> DPO["DPO 학습"]
-    DPO --> Aligned["선호도 반영 모델"]
+    Pre["<b>Pretrained Base LM</b><br/>π_pre(y | x)"]
+
+    subgraph STAGE1["Stage 1: Supervised Instruction Fine-Tuning (SFT)"]
+        direction LR
+        SFTData["<b>Instruction Dataset</b><br/>(x_prompt, y_response)"]
+        Mask["<b>Prompt & Pad Masking</b><br/>labels[x_prompt] = −100"]
+        SFTLoss["<b>Response-Only CE Loss</b><br/>ℒ_SFT = −Σ_{t∈resp} log π_θ(y_t | x, y_{&lt;t})"]
+        Assist["<b>SFT Assistant Model</b><br/>π_SFT(y | x)"]
+        SFTData --> Mask --> SFTLoss --> Assist
+    end
+
+    subgraph STAGE2["Stage 2: Direct Preference Optimization (Rafailov et al., 2023)"]
+        direction LR
+        Pref["<b>Preference Triplets</b><br/>(x, y_w ≻ y_l)"]
+        Policy["<b>Trainable Policy π_θ</b><br/>log π_θ(y_w|x), log π_θ(y_l|x)"]
+        Ref["<b>Frozen Reference π_ref</b><br/>log π_ref(y_w|x), log π_ref(y_l|x)"]
+        DPOLoss["<b>DPO Contrastive Loss</b><br/>−log σ(β log[π_θ(y_w)/π_ref(y_w)] − β log[π_θ(y_l)/π_ref(y_l)])"]
+        Aligned["<b>Aligned Policy π_θ*</b><br/>Preference-Aligned Assistant"]
+
+        Pref --> Policy & Ref
+        Policy & Ref --> DPOLoss --> Aligned
+    end
+
+    Pre --> SFTLoss
+    Assist -- "Init Policy θ" --> Policy
+    Assist -. "Freeze Copy (no_grad)" .-> Ref
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef model fill:#fff3e6,stroke:#d97706,stroke-width:1.8px,color:#0f172a;
+    classDef frozen fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,stroke-dasharray: 4 2,color:#334155;
+    classDef mask fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+    classDef dpo fill:#fff1f2,stroke:#e11d48,stroke-width:1.8px,color:#0f172a;
+    classDef out fill:#ecfdf5,stroke:#059669,stroke-width:1.8px,color:#0f172a;
+
+    class SFTData,Pref data;
+    class Pre,Assist,Policy model;
+    class Ref frozen;
+    class Mask mask;
+    class SFTLoss,DPOLoss dpo;
+    class Aligned out;
+    style STAGE1 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style STAGE2 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표

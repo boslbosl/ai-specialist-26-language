@@ -16,17 +16,65 @@ GPT에서는 여기에 causal mask를 추가해, 미래 토큰을 보지 못하�
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 36, 'padding': 10 }
+}}%%
 flowchart LR
-    X["입력 벡터 X\n[batch, tokens, emb]"] --> Q["Query"]
-    X --> K["Key"]
-    X --> V["Value"]
-    Q --> Score["Q x K^T\nAttention score"]
-    K --> Score
-    Score --> Scale["Scale"]
-    Scale --> Mask["Causal mask"]
-    Mask --> Softmax["Softmax\nAttention weight"]
-    Softmax --> Context["Weight x V\nContext vector"]
-    V --> Context
+    X["<b>Input Hidden States X</b><br/>ℝ^{B × T × d_model}"]
+
+    subgraph PROJ["1. Multi-Head Projections (× h)"]
+        direction TB
+        Q["<b>Query (Q = XW_Q)</b><br/>ℝ^{B × h × T × d_k}"]
+        K["<b>Key (K = XW_K)</b><br/>ℝ^{B × h × T × d_k}"]
+        V["<b>Value (V = XW_V)</b><br/>ℝ^{B × h × T × d_v}"]
+    end
+
+    subgraph SDPA["2. Scaled Dot-Product Attention"]
+        direction LR
+        MatMul1["<b>MatMul</b><br/>S = Q · K^T<br/>ℝ^{B × h × T × T}"]
+        Scale["<b>Scale</b><br/>S / √d_k"]
+        Mask["<b>Causal Mask (M)</b><br/>M_{ij} = −∞ (j &gt; i)"]
+        Softmax["<b>Softmax (dim=−1)</b><br/>A = softmax(S/√d_k + M)"]
+        MatMul2["<b>MatMul (Weighted Sum)</b><br/>Context = A · V<br/>ℝ^{B × h × T × d_v}"]
+
+        MatMul1 --> Scale --> Mask --> Softmax --> MatMul2
+    end
+
+    subgraph OUT["3. Head Aggregation"]
+        direction LR
+        Concat["<b>Concat Heads</b><br/>ℝ^{B × T × (h·d_v)}"] --> WO["<b>Output Projection W_O</b><br/>ℝ^{B × T × d_model}"]
+    end
+
+    X --> Q & K & V
+    Q --> MatMul1
+    K --> MatMul1
+    V --> MatMul2
+    MatMul2 --> Concat
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef qkv fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef attn fill:#fff3e6,stroke:#d97706,stroke-width:1.5px,color:#0f172a;
+    classDef mask fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+    classDef prob fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+    classDef out fill:#fceef2,stroke:#b83b5e,stroke-width:1.5px,color:#0f172a;
+
+    class X data;
+    class Q,K,V,WO qkv;
+    class MatMul1,Scale,MatMul2 attn;
+    class Mask mask;
+    class Softmax prob;
+    class Concat out;
+    style PROJ fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style SDPA fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style OUT fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표
