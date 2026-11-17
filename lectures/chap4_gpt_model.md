@@ -12,19 +12,60 @@ GPT는 embedding, positional information, Transformer block, output head를 연�
 ## 전체 구조 Overview
 
 ```mermaid
-flowchart TD
-    Text["텍스트"] --> Tok["Tokenizer"]
-    Tok --> IDs["Token IDs"]
-    IDs --> TE["Token embedding"]
-    IDs --> PE["Position embedding"]
-    TE --> Add["Embedding 합"]
-    PE --> Add
-    Add --> Block1["Transformer Block x N"]
-    Block1 --> Norm["Final LayerNorm"]
-    Norm --> Head["Linear output head"]
-    Head --> Logits["Vocabulary logits"]
-    Logits --> Decode["Temperature / Top-k / Sampling"]
-    Decode --> Next["다음 토큰"]
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 34, 'padding': 10 }
+}}%%
+flowchart LR
+    subgraph IN["1. Input & Embedding Layer"]
+        direction TB
+        Text["<b>Prompt Text</b>"] --> Tok["<b>Tokenizer</b>"]
+        Tok --> IDs["<b>Token IDs (idx)</b><br/>ℤ^{B × T}"]
+        IDs --> TE["<b>Token Emb W_e</b><br/>ℝ^{B × T × d}"]
+        IDs --> PE["<b>Pos Emb W_p</b><br/>ℝ^{T × d}"]
+        TE & PE --> Add(["<b>⊕ Sum & Dropout</b><br/>h^(0) ∈ ℝ^{B × T × d}"])
+    end
+
+    subgraph STACK["2. Decoder Stack (× N)"]
+        direction TB
+        Block1["<b>Pre-LN Transformer Block × N</b><br/>Masked MHA + Position-wise FFN<br/>h^(N) ∈ ℝ^{B × T × d}"]
+    end
+
+    subgraph HEAD["3. LM Head & Autoregressive Decoding"]
+        direction LR
+        Norm["<b>Final LayerNorm</b><br/>ℝ^{B × T × d}"]
+        Head["<b>Linear LM Head</b><br/>Logits z ∈ ℝ^{B × T × |V|}"]
+        Decode["<b>Last Step & Sampling</b><br/>z_{:, −1, :} / τ · Top-k · Softmax"]
+        Next["<b>Next Token u_{T+1}</b><br/>ℤ^{B × 1}"]
+        Norm --> Head --> Decode --> Next
+    end
+
+    Add --> Block1 --> Norm
+    Next -. "Autoregressive Append: idx ← [idx, u_{T+1}]" .-> IDs
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef emb fill:#fceef2,stroke:#b83b5e,stroke-width:1.5px,color:#0f172a;
+    classDef blk fill:#fff3e6,stroke:#d97706,stroke-width:1.8px,color:#0f172a;
+    classDef norm fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+    classDef head fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef prob fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+
+    class Text,Tok,IDs,Next data;
+    class TE,PE emb;
+    class Add,Norm norm;
+    class Block1 blk;
+    class Head head;
+    class Decode prob;
+    style IN fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style STACK fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style HEAD fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표
@@ -66,16 +107,64 @@ x:         [batch, seq_len, emb_dim]
 GPT block은 보통 다음 흐름을 가집니다.
 
 ```mermaid
-flowchart TD
-    X["입력 x"] --> LN1["LayerNorm"]
-    LN1 --> MHA["Masked Multi-Head Attention"]
-    MHA --> Add1["Residual add"]
-    X --> Add1
-    Add1 --> LN2["LayerNorm"]
-    LN2 --> FFN["Feed Forward Network"]
-    FFN --> Add2["Residual add"]
-    Add1 --> Add2
-    Add2 --> Out["다음 block 입력"]
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 28, 'rankSpacing': 36, 'padding': 10 }
+}}%%
+flowchart LR
+    X["<b>Block Input h^(l−1)</b><br/>ℝ^{B × T × d}"]
+
+    subgraph SUB1["Sub-layer 1: Causal Self-Attention (Pre-LN)"]
+        direction LR
+        LN1["<b>LayerNorm 1</b><br/>LN(h^(l−1))"]
+        MHA["<b>Masked MHA</b><br/>Causal Mask (j &gt; i)"]
+        Drop1["<b>Dropout</b>"]
+        LN1 --> MHA --> Drop1
+    end
+
+    Add1(["<b>⊕ Residual Add</b><br/>z^(l) = h^(l−1) + MHA(LN(h^(l−1)))"])
+
+    subgraph SUB2["Sub-layer 2: Position-wise FFN (Pre-LN)"]
+        direction LR
+        LN2["<b>LayerNorm 2</b><br/>LN(z^(l))"]
+        FFN["<b>Position-wise FFN</b><br/>Linear(d→4d) · GELU · Linear(4d→d)"]
+        Drop2["<b>Dropout</b>"]
+        LN2 --> FFN --> Drop2
+    end
+
+    Add2(["<b>⊕ Residual Add</b><br/>h^(l) = z^(l) + FFN(LN(z^(l)))"])
+    Out["<b>Block Output h^(l)</b><br/>ℝ^{B × T × d}"]
+
+    X --> LN1
+    Drop1 --> Add1
+    X -- "Identity Skip" --> Add1
+    Add1 --> LN2
+    Drop2 --> Add2
+    Add1 -- "Identity Skip" --> Add2
+    Add2 --> Out
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef norm fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+    classDef attn fill:#fff3e6,stroke:#d97706,stroke-width:1.5px,color:#0f172a;
+    classDef ffn fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef reg fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#334155;
+    classDef op fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+
+    class X,Out data;
+    class LN1,LN2 norm;
+    class MHA attn;
+    class FFN ffn;
+    class Drop1,Drop2 reg;
+    class Add1,Add2 op;
+    style SUB1 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style SUB2 fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 구현에 따라 LayerNorm 위치가 조금 다를 수 있습니다.

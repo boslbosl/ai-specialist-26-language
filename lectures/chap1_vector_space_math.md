@@ -14,13 +14,51 @@ embedding, linear layer, softmax, loss, gradient descent를 읽을 수 있는 �
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 28, 'rankSpacing': 38, 'padding': 10 }
+}}%%
 flowchart LR
-    Text["텍스트"] --> Vector["벡터 표현"]
-    Vector --> Linear["행렬 곱\nLinear layer"]
-    Linear --> Activation["활성화 함수\nReLU/GELU 등"]
-    Activation --> Prob["Softmax\n확률 분포"]
-    Prob --> Loss["Loss\n정답과 비교"]
-    Loss --> Grad["Gradient\n파라미터 업데이트"]
+    subgraph FWD["1. Forward Computation Graph"]
+        direction LR
+        Text["<b>Raw Token</b><br/>Discrete Symbol w"] --> Vector["<b>Vector Embedding</b><br/>x ∈ ℝ^{d_in}"]
+        Vector --> Linear["<b>Affine Transform</b><br/>h = xW + b"]
+        Linear --> Activation["<b>Nonlinear Activation</b><br/>a = GELU(h)"]
+        Activation --> Logits["<b>Output Logits</b><br/>z ∈ ℝ^{|V|}"]
+        Logits --> Prob["<b>Softmax</b><br/>P(y|x) = exp(z_i) / Σ exp(z_j)"]
+    end
+
+    subgraph OBJ["2. Objective & Backpropagation"]
+        direction LR
+        Target["<b>Ground-Truth Target</b><br/>Token ID y*"] --> Loss["<b>Cross-Entropy Loss</b><br/>ℒ = −log P(y* | x)"]
+        Prob --> Loss
+        Loss --> Grad["<b>Backpropagation</b><br/>∂ℒ/∂W · W ← W − η∇_Wℒ"]
+    end
+
+    Grad -. "Update (W, b)" .-> Linear
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef emb fill:#fceef2,stroke:#b83b5e,stroke-width:1.5px,color:#0f172a;
+    classDef comp fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef act fill:#fff3e6,stroke:#d97706,stroke-width:1.5px,color:#0f172a;
+    classDef prob fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+    classDef loss fill:#fff1f2,stroke:#e11d48,stroke-width:1.5px,color:#0f172a;
+
+    class Text,Target data;
+    class Vector emb;
+    class Linear,Logits comp;
+    class Activation act;
+    class Prob prob;
+    class Loss,Grad loss;
+    style FWD fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style OBJ fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표

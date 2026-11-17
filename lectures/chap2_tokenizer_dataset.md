@@ -13,14 +13,62 @@ LLM은 문자열을 직접 입력받지 않습니다. 문장을 토큰 ID의 배
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 36, 'padding': 10 }
+}}%%
 flowchart LR
-    Raw["원문 텍스트"] --> Clean["전처리"]
-    Clean --> Tokenizer["Tokenizer\nBPE/WordPiece/Unigram"]
-    Tokenizer --> IDs["Token IDs"]
-    IDs --> Dataset["Input/Target pair"]
-    IDs --> Emb["Token embedding"]
-    Emb --> Pos["Position 정보 추가"]
-    Pos --> Model["Language model input"]
+    subgraph TOK["1. Subword Tokenization"]
+        direction LR
+        Raw["<b>Raw Corpus</b><br/>Unstructured Text"] --> Clean["<b>Pre-tokenization</b><br/>Normalization & Special Tokens"]
+        Clean --> Tokenizer["<b>Subword Tokenizer</b><br/>BPE / WordPiece / Unigram"]
+        Tokenizer --> IDs["<b>Token ID Stream</b><br/>u = (u_1, …, u_N) ∈ V^N"]
+    end
+
+    subgraph DATA["2. Sliding-Window DataLoader"]
+        direction TB
+        Window["<b>Sliding Window</b><br/>Context T · Stride S"]
+        InputIDs["<b>Input IDs (x)</b><br/>u_{t : t+T−1} ∈ ℤ^{B×T}"]
+        TargetIDs["<b>Shifted Targets (y)</b><br/>u_{t+1 : t+T} ∈ ℤ^{B×T}"]
+        Window --> InputIDs
+        Window --> TargetIDs
+    end
+
+    subgraph EMB["3. Input Representation Layer"]
+        direction TB
+        TokEmb["<b>Token Embedding</b><br/>W_e[x] ∈ ℝ^{B×T×d}"]
+        PosEmb["<b>Positional Embedding</b><br/>W_p[0..T−1] ∈ ℝ^{T×d}"]
+        Add(["<b>⊕ Element-wise Sum</b>"])
+        ModelIn["<b>Transformer Input H^(0)</b><br/>W_e[x] + W_p ∈ ℝ^{B×T×d}"]
+        TokEmb --> Add
+        PosEmb --> Add
+        Add --> ModelIn
+    end
+
+    IDs --> Window
+    InputIDs --> TokEmb
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef proc fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef emb fill:#fceef2,stroke:#b83b5e,stroke-width:1.5px,color:#0f172a;
+    classDef out fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+    classDef op fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a;
+
+    class Raw,IDs,InputIDs,TargetIDs data;
+    class Clean,Tokenizer,Window proc;
+    class TokEmb,PosEmb emb;
+    class Add op;
+    class ModelIn out;
+    style TOK fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style DATA fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style EMB fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표

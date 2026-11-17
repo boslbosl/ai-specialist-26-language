@@ -13,15 +13,64 @@ LLM의 사전학습은 대량의 텍스트에서 다음 토큰을 예측하는 �
 ## 한눈에 보는 흐름
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Georgia, "Times New Roman", "Noto Serif KR", serif',
+    'fontSize': '13px',
+    'primaryTextColor': '#0f172a',
+    'lineColor': '#334155',
+    'edgeLabelBackground': '#ffffff'
+  },
+  'flowchart': { 'curve': 'basis', 'nodeSpacing': 26, 'rankSpacing': 36, 'padding': 10 }
+}}%%
 flowchart LR
-    Text["대량 텍스트"] --> Dataset["Input/Target dataset"]
-    Dataset --> Batch["Mini-batch"]
-    Batch --> Model["GPT forward"]
-    Model --> Logits["Logits"]
-    Logits --> Loss["Cross entropy loss"]
-    Loss --> Backward["Backward"]
-    Backward --> Optim["Optimizer step"]
-    Optim --> Eval["Validation loss 확인"]
+    subgraph DATA["1. Corpus & Data Partition"]
+        direction TB
+        Corpus["<b>Unlabeled Text Corpus D</b>"]
+        TrainSet["<b>Train Split D_train</b><br/>Mini-batch (X, Y) ∈ ℤ^{B×T}"]
+        ValSet["<b>Validation Split D_val</b><br/>Held-out Generalization Set"]
+        Corpus --> TrainSet
+        Corpus --> ValSet
+    end
+
+    subgraph TRAIN["2. Autoregressive Forward & CLM Objective"]
+        direction TB
+        Model["<b>GPT Backbone f_θ(X)</b><br/>Train Mode (Dropout On)"]
+        Logits["<b>Flattened Logits</b><br/>Z_flat ∈ ℝ^{(B·T) × |V|}"]
+        Loss["<b>Cross-Entropy Loss</b><br/>ℒ_CLM = −(1/BT) Σ log P_θ(y_t | x_{≤t})"]
+        Model --> Logits --> Loss
+    end
+
+    subgraph OPT["3. Parameter Update & Evaluation"]
+        direction TB
+        Backward["<b>Backpropagation</b><br/>zero_grad() · backward() → ∇_θ ℒ"]
+        Optim["<b>AdamW Optimizer Step</b><br/>Moment m_t, v_t & Weight Decay"]
+        Eval["<b>Validation Check</b><br/>eval() · no_grad() → ℒ_val, PPL"]
+        Backward --> Optim
+    end
+
+    TrainSet -- "Input X" --> Model
+    TrainSet -- "Shifted Target Y_flat" --> Loss
+    Loss --> Backward
+    Optim -. "Update Parameters θ" .-> Model
+    ValSet -. "Periodic Eval" .-> Eval
+    Model -. "Weights θ" .-> Eval
+
+    classDef data fill:#eef4fa,stroke:#3b6998,stroke-width:1.5px,color:#0f172a;
+    classDef model fill:#fff3e6,stroke:#d97706,stroke-width:1.8px,color:#0f172a;
+    classDef comp fill:#e8f6f9,stroke:#0284c7,stroke-width:1.5px,color:#0f172a;
+    classDef loss fill:#fff1f2,stroke:#e11d48,stroke-width:1.5px,color:#0f172a;
+    classDef eval fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a;
+
+    class Corpus,TrainSet,ValSet data;
+    class Model model;
+    class Logits comp;
+    class Loss,Backward,Optim loss;
+    class Eval eval;
+    style DATA fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style TRAIN fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
+    style OPT fill:#f8fafc,stroke:#64748b,stroke-width:1.2px,stroke-dasharray: 4 3,color:#0f172a
 ```
 
 ## 학습 목표
