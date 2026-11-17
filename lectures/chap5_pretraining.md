@@ -12,17 +12,7 @@ LLM의 사전학습은 대량의 텍스트에서 다음 토큰을 예측하는 �
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    Text["대량 텍스트"] --> Dataset["Input/Target dataset"]
-    Dataset --> Batch["Mini-batch"]
-    Batch --> Model["GPT forward"]
-    Model --> Logits["Logits"]
-    Logits --> Loss["Cross entropy loss"]
-    Loss --> Backward["Backward"]
-    Backward --> Optim["Optimizer step"]
-    Optim --> Eval["Validation loss 확인"]
-```
+![Figure 5.1: Self-Supervised Next-Token Pretraining and Validation Loop](./figures/chap5_pretraining_loop.drawio.svg)
 
 ## 학습 목표
 

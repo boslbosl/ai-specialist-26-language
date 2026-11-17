@@ -12,16 +12,7 @@ fine-tuning을 통해 모델을 해당 작업에 맞춰 조정할 수 있습니�
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    Pre["사전학습 GPT"] --> Data["분류 데이터\ntext + label"]
-    Data --> Tok["Tokenize + Padding"]
-    Tok --> Hidden["GPT hidden states"]
-    Hidden --> Head["Classification head"]
-    Head --> Loss["Cross entropy"]
-    Loss --> Update["파라미터 업데이트"]
-    Update --> LoRA["LoRA 적용 시\n작은 A/B 행렬만 학습"]
-```
+![Figure 6.1: Low-Rank Adaptation (LoRA) and Sequence Classification Head](./figures/chap6_classification_and_lora.drawio.svg)
 
 ## 학습 목표
 

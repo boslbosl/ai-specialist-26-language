@@ -12,16 +12,7 @@ LLM은 문자열을 직접 입력받지 않습니다. 문장을 토큰 ID의 배
 
 ## 한눈에 보는 흐름
 
-```mermaid
-flowchart LR
-    Raw["원문 텍스트"] --> Clean["전처리"]
-    Clean --> Tokenizer["Tokenizer\nBPE/WordPiece/Unigram"]
-    Tokenizer --> IDs["Token IDs"]
-    IDs --> Dataset["Input/Target pair"]
-    IDs --> Emb["Token embedding"]
-    Emb --> Pos["Position 정보 추가"]
-    Pos --> Model["Language model input"]
-```
+![Figure 2.1: Subword Tokenization, Sliding-Window Dataset, and Positional Embedding](./figures/chap2_tokenizer_embedding_pipeline.drawio.svg)
 
 ## 학습 목표
 
